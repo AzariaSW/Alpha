@@ -37,7 +37,7 @@ function Inner({ partners }) {
           <p>
             {result.sms?.delivered
               ? 'The learner was sent a text link to keep or delete their profile.'
-              : 'No SMS was sent (demo mode or no phone). Give this link to the learner:'}
+              : 'No SMS was sent. This demo stores the link only on this device:'}
           </p>
           {!result.sms?.delivered && <p><a className="ax-link" href={result.link}>{result.link}</a></p>}
           <button type="button" className="ax-btn ax-btn-primary" onClick={reset}>

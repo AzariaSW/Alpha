@@ -22,8 +22,8 @@ const T = {
   apply: { en: 'Apply' },
   none: { en: 'No jobs match yet. Turn off the filter or pick less.' },
   backToJobs: { en: 'Back to jobs' },
-  applied: { en: 'Your application was sent. The employer sees only what you chose to share.' },
-  posted: { en: 'Your job is listed with the support you offer.' },
+  applied: { en: 'Your application is saved on this device only. It has not been sent to the employer.' },
+  posted: { en: 'This job is saved on this device only. It is not publicly listed.' },
   seeJobs: { en: 'See the job list' } }
 
 function JobFilter({ needs, setNeeds, onlyAll, setOnlyAll }) {

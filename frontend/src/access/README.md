@@ -1,33 +1,30 @@
-# Accessible onboarding and career gateway: front / back split
+# React accessible onboarding and career gateway
 
-## FRONT (yours): everything under `src/access/`
+The React app is the selected production UI. It includes a one-question form engine, answer review
+and edit, voice input, a no-document referral handoff, a partner-registration demo, private
+on-device support preferences, and the career-gateway demo.
 
-Written, not yet linted, built or run:
-- `engine/FormEngine.jsx`: one question per screen, no timers, autosave, review, send
-- `engine/StepField.jsx`, `VoiceInput.jsx`, `SaveLater.jsx`, `validate.js`, `voiceApply.js`
-- `AccessShell.jsx`: text size, contrast, simple mode, private-support dialog
-- `Onboarding.jsx` (sign-up + profile + SMS claim and resume), `PartnerRegister.jsx`
-- `schemas.js`, `vocab.js`, `i18n.js`, `voice.js`, `jobs.js` (sample jobs)
+## Current integration boundaries
 
-Still to write:
-- `access.css` (imported by `AccessShell.jsx`; classes are all `ax-*`): large targets, focus ring, high contrast, text sizes `ax-s0..s3`, `ax-simple`, `ax-sr` (screen-reader-only)
-- `Career.jsx`: job list, private "support I need" filter (matching via `matchJobs`), apply flow using `buildApplicationSchema(job)`, employer form using `employerSchema`
-- `index.js` exports, a demo page (`access.html` + `demo.jsx`), `vite.config.js` multi-page input
-- Run `npm run lint` and `npm run build`; test with NVDA or TalkBack and Chrome voice input
+- Registration drafts are saved through the backend and encrypted at rest. Inactive drafts are
+  archived after 30 minutes and deleted after two years.
+- The learner's `partner_referral` choice requires explicit consent and is returned to the host
+  through `onComplete`. A partner directory, notification, or staff queue is not connected yet.
+- Support requests, job postings, and job applications currently stay in browser storage. The UI
+  must not describe them as sent to a support team or employer.
+- SMS uses a development outbox only. It does not deliver messages or make cross-device links
+  work; real carrier delivery requires an SMS provider and confirmed coverage/price.
+- The interface currently provides English text. Amharic and other launch languages need
+  translation and review before a learner-facing release.
 
-## BACK (someone else): implement what `src/access/store.js` calls
+Run the production build and backend checks from the repository root:
 
-Front talks to the back only through `configureGateway({ sendSms, saveRemote, loadRemote })` and the small functions in `store.js`. Today they use localStorage and a demo SMS outbox, so nothing leaves the browser.
+```sh
+npm run build
+npm test
+npm run lint
+```
 
-| Need | Contract |
-|---|---|
-| Send SMS | `sendSms({ to, body })`. Use an SMS provider such as Africa's Talking. |
-| Save and resume | `saveRemote("resume:<token>", { formId, answers, stepId })` and `loadRemote(...)`. Token is 32 hex chars. No expiry. Delete when the form is submitted. |
-| Partner claim | `saveRemote("claim:<token>", { profile, support, partnerName })`. Learner opens `?claim=<token>` to keep or delete. Deleting must really delete server-side. |
-| Profile | CRUD for one profile per person. Never store `support` with it. |
-| Private support | Store `{ needs[], note, replyVia, phone }` separately. Only the support team may read it. Never expose it to employers or partners. |
-| Partners | Log of `{ partnerName, staffName, learnerName, consent: { given, how }, at }`. Needs partner login. |
-| Jobs | `GET /jobs` returning `{ id, company, title, place, summary, offers[] }`. `POST /jobs` from the employer form. Reject if `noProof` is not `yes`. |
-| Applications | `POST /applications` with the answers. `interviewSupport` is the only support data the employer may receive, and only if the applicant ticked it. |
-
-Back-end rules to keep: no medical proof fields anywhere, no timeouts on drafts, no support needs in any employer-facing API, encrypt stored answers, and tell users that browser voice recognition may send audio to the browser vendor's speech service.
+See [the backend deployment notes](../../../backend/README.md) for required secrets and service
+configuration. Automated axe checks do not replace TalkBack, NVDA, and co-designer testing on
+physical devices.

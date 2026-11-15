@@ -77,6 +77,8 @@ const progressSchema = z.object({
     'email',
     'phone',
     'contactMethods',
+    'idRoute',
+    'referralConsent',
     'identityDocument',
   ]),
   answers: z.object({
@@ -87,6 +89,8 @@ const progressSchema = z.object({
     email: z.string().trim().email().max(254).optional(),
     phone: z.string().trim().min(7).max(25).optional(),
     contactMethods: z.array(contactMethodSchema).optional(),
+    idRoute: z.enum(['national_id', 'refugee_id', 'other', 'partner_referral']).optional(),
+    referralConsent: z.enum(['yes', 'no']).optional(),
   }).strict(),
 }).strict();
 
@@ -104,13 +108,23 @@ const verifySchema = z.object({
     email: z.string().trim().email().max(254),
     phone: z.string().trim().min(7).max(25),
     contactMethods: z.array(contactMethodSchema).min(1),
+    idRoute: z.enum(['national_id', 'refugee_id', 'other', 'partner_referral']).optional(),
+    referralConsent: z.enum(['yes', 'no']).optional(),
   }).strict(),
   document: z.object({
     name: z.string().trim().max(120).optional(),
     phone: z.string().trim().max(25).optional(),
   }).strict(),
   consent: z.literal(true),
-}).strict();
+}).strict().superRefine((input, context) => {
+  if (input.registration.idRoute === 'partner_referral' && input.registration.referralConsent !== 'yes') {
+    context.addIssue({
+      code: 'custom',
+      path: ['registration', 'referralConsent'],
+      message: 'Partner referral requires the learner’s consent',
+    });
+  }
+});
 
 function normalizeName(value = '') {
   return value
@@ -214,10 +228,22 @@ router.post('/verify', async (req, res, next) => {
       savedAnswers.email === input.registration.email,
       savedAnswers.phone === input.registration.phone,
       JSON.stringify(savedContactMethods) === JSON.stringify(submittedContactMethods),
+      (savedAnswers.idRoute || '') === (input.registration.idRoute || ''),
+      (savedAnswers.referralConsent || '') === (input.registration.referralConsent || ''),
     ].every(Boolean);
     if (!draftMatchesSubmission) {
       return res.status(409).json({
         error: { code: 'DRAFT_CHANGED', message: 'Save the latest registration answers before checking the document.' },
+      });
+    }
+
+    if (input.registration.idRoute === 'partner_referral') {
+      await discardProgress(input.token);
+      return res.json({
+        status: 'partner_referral',
+        matches: { fullName: false, phone: false },
+        authenticityVerified: false,
+        registration: input.registration,
       });
     }
 

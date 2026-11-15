@@ -288,11 +288,14 @@ export function getPool() {
       });
 
       pool.on('error', (err) => {
-        console.warn('PostgreSQL pool error — falling back to in-memory mock:', err.message);
-        useMockDb = true;
-        pool = createMockPool();
+        console.warn('PostgreSQL pool error:', err.message);
+        if (env.NODE_ENV !== 'production') {
+          useMockDb = true;
+          pool = createMockPool();
+        }
       });
     } catch (err) {
+      if (env.NODE_ENV === 'production') throw err;
       console.warn('Failed to create PostgreSQL pool — using in-memory mock:', err.message);
       useMockDb = true;
       pool = createMockPool();
@@ -316,7 +319,9 @@ export async function query(text, params) {
     });
     return result;
   } catch (error) {
-    if (!useMockDb && (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT')) {
+    if (env.NODE_ENV !== 'production'
+      && !useMockDb
+      && (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT')) {
       console.warn('PostgreSQL unreachable — switching to in-memory database mock:', error.message);
       useMockDb = true;
       pool = createMockPool();

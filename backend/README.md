@@ -28,25 +28,52 @@ All application endpoints use `/api/v1`. Responses include `API-Version: v1`, an
 [`openapi.yaml`](openapi.yaml), with the interactive docs at `/docs`.
 
 The registration wizard has separate phases for full name, date of birth, gender, username
-(optional; no password or account is created), email, phone, contact-channel consent, and
-document scanning. The document field can open a camera capture or browse for an image. OCR runs
-in the browser; the image and full OCR text are not uploaded. The endpoint
+(optional; no password or account is created), email, phone, contact-channel consent, and ID route.
+Learners may choose a kebele ID/passport, refugee ID, another document/letter, or a consented
+partner referral without uploading a document. The referral result is handed to the embedding
+host callback; this repository does not yet have a partner directory, notification, or staff queue.
+Document OCR runs in the browser; the image and full OCR text are not uploaded. The endpoint
 `POST /api/v1/registration/verify` temporarily compares the entered full name and phone number
-with the on-device OCR values. Both must match to return registration data to the embedding host.
+with on-device OCR values. Both must match to return a document-route registration to the host.
 Missing or mismatched values require human review. A text match does not prove document
 authenticity or identity, and there is no RRS/AR registry integration.
 
+The React career gateway is still a local demo: support requests, job postings, and applications
+are not sent to a support team or employer. It must not be presented as a live job service until
+the authenticated backend endpoints and data-retention policy for those records are implemented.
+
 Every Next saves the incomplete registration fields in Redis. Activity while editing refreshes
-the 30-minute idle timer. After 30 minutes idle, a background worker archives the draft in
-PostgreSQL for 50 years. It queues a demo SMS resume link only when SMS was explicitly selected
-as an allowed contact method. No real SMS provider is configured. A resumed draft moves back to
-Redis; successful completion or explicit discard deletes its Redis/PostgreSQL draft. Completed
+the 30-minute idle archival window; the form itself does not expire or block submission because
+of inactivity. After that window, an encrypted draft is archived in PostgreSQL for up to two
+years. A reminder is queued only when SMS was explicitly selected as an allowed contact method.
+The current SMS implementation is a development outbox and does not deliver messages. A resumed
+draft moves back to Redis; successful completion or explicit discard deletes its draft. Completed
 registration details are returned to the host callback and are not persisted. The document image,
 OCR text, and passwords are never saved in Redis or PostgreSQL.
 
-Production deployment must configure `DATABASE_URL`, `REDIS_URL`, and `PUBLIC_APP_URL`; Compose
-runs the PostgreSQL migration before starting the API. Local development uses in-memory adapters
-when Redis/PostgreSQL are not provisioned and is not durable across restarts.
+Production deployment must configure `DATABASE_URL`, `REDIS_URL`, `PUBLIC_APP_URL` (HTTPS),
+`CORS_ORIGIN`, `API_KEY_PEPPER`, `DATA_ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, and
+`REDIS_PASSWORD`. The encryption key must be 64 hexadecimal characters; back it up securely
+because losing it makes encrypted drafts unreadable. Compose runs database migrations before
+starting the API and does not publish the database or Redis ports outside the Docker network.
+Local development uses in-memory adapters when Redis/PostgreSQL are not provisioned and is not
+durable across restarts.
+
+Generate separate random secrets (and keep them in your deployment secret manager):
+
+```sh
+node -p "require('node:crypto').randomBytes(32).toString('hex')"
+```
+
+Use the generated 64-character hexadecimal values for `POSTGRES_PASSWORD`,
+`REDIS_PASSWORD`, and `DATA_ENCRYPTION_KEY`; generate a separate value for `API_KEY_PEPPER`.
+Put the app behind a TLS-terminating reverse proxy and set `PUBLIC_APP_URL` and `CORS_ORIGIN`
+to the public HTTPS origin.
+
+Real SMS delivery is not included. Do not treat a free provider sandbox or the development
+outbox as successful delivery. Before launch, select a provider with a written price/coverage
+confirmation for Ethio telecom (and Safaricom Ethiopia if required), then add its credentials
+through deployment secrets. Carrier delivery cannot be guaranteed by this application alone.
 
 Local dev URLs (`http://localhost:3000`):
 - Standalone blank page proof: `http://localhost:3000/` (`demo/blank.html`)
@@ -165,7 +192,7 @@ Complete English (`../shared/module/src/locales/en.js` & `en.json`) and Amharic 
 - **Browser only by default**: Drafts stay in IndexedDB and clear on confirmed submission.
 - **Explicit consent**: Registration requires checking the explicit consent box (`consent.accepted` + `consent.recordedAt`) before completing.
 - **Strict separation**: Support preferences are emitted in `db-signup:support` and stored locally only for the client-side job filter in `savanna/pages/jobs.html` and `demo/jobs.html`—never sent to employers or included in `db-signup:done`.
-- **Registration draft retention**: PostgreSQL stores incomplete registration drafts only after the 30-minute idle threshold, with a 50-year expiry; completing registration or deleting the draft removes it.
+- **Registration draft retention**: Incomplete drafts are encrypted in Redis and PostgreSQL, archived after 30 minutes idle, and deleted after two years; completing registration or deleting the draft removes it.
 - **Completed registration privacy**: The verify endpoint returns matched registration fields to the host callback but does not insert a completed learner record.
 - **Explicit microphone consent**: Speech recognition and voice-note recording stay off until the learner clicks the control, with audio playback preview before submission.
 

@@ -50,6 +50,12 @@ const T = {
   registrationComplete: {
     en: "The entered name and phone matched the document text. Your completed details will be returned to the host application; this service does not store them.",
   },
+  partnerReferralComplete: {
+    en: "Your request is ready for the connected service to refer you to a partner. Your details are shared only with your permission.",
+  },
+  partnerReferralNoHandler: {
+    en: "You asked for a partner referral, but this page is not connected to a partner service. Your details were not sent or saved.",
+  },
   registrationCompleteNoHandler: {
     en: "The entered name and phone matched the document text, but no host completion handler is configured. Your details were not saved.",
   },
@@ -273,20 +279,29 @@ function Inner({ partners, onComplete, onReviewRequired }) {
           email: answers.email,
           phone: answers.phone,
           contactMethods: answers.contactMethods,
+          idRoute: answers.idRoute,
+          ...(answers.idRoute === "partner_referral"
+            ? { referralConsent: answers.referralConsent }
+            : {}),
         },
         document: { name: document.documentName, phone: document.documentPhone },
-        consent: document.consent === true,
+        consent: answers.idRoute === "partner_referral"
+          ? answers.referralConsent === "yes"
+          : document.consent === true,
       }),
     });
     const result = await response.json();
     if (!response.ok) {
       throw new Error(result.error?.message || tr("sendFailed"));
     }
-    if (result.status === "text_match") {
+    if (result.status === "text_match" || result.status === "partner_referral") {
       clearRegistrationDraftToken();
       clearResumeUrl();
     }
-    return { ...result, preserveDraft: result.status !== "text_match" };
+    return {
+      ...result,
+      preserveDraft: result.status !== "text_match" && result.status !== "partner_referral",
+    };
   };
   const discardDraft = async (token) => {
     await deleteRegistrationDraft(token);
@@ -303,6 +318,27 @@ function Inner({ partners, onComplete, onReviewRequired }) {
           {onReviewRequired && (
             <button type="button" className="ax-btn ax-btn-primary" onClick={() => onReviewRequired(reviewData, result)}>
               {tr("requestHumanReview")}
+            </button>
+          )}
+          <button type="button" className="ax-btn" onClick={reset}>{t("resumeNew")}</button>
+        </>
+      );
+    }
+
+    if (result?.status === "partner_referral") {
+      return (
+        <>
+          <p role="status">{onComplete ? t("partnerReferralComplete") : t("partnerReferralNoHandler")}</p>
+          {onComplete && (
+            <button
+              type="button"
+              className="ax-btn ax-btn-primary"
+              onClick={() => onComplete({ ...result.registration, verification: {
+                status: result.status,
+                authenticityVerified: false,
+              } })}
+            >
+              {t("next")}
             </button>
           )}
           <button type="button" className="ax-btn" onClick={reset}>{t("resumeNew")}</button>

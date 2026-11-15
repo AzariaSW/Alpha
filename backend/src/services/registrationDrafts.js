@@ -11,10 +11,11 @@ import {
 import { logger } from '../config/logger.js';
 import { queueRegistrationReminder } from './sms.js';
 import { redis } from './redis.js';
+import { decryptJson, decryptText, encryptJson, encryptText } from '../utils/dataEncryption.js';
 
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 const REDIS_TTL_SECONDS = 24 * 60 * 60;
-const FALLBACK_RETENTION_MS = 50 * 365.25 * 24 * 60 * 60 * 1000;
+const FALLBACK_RETENTION_MS = 2 * 365.25 * 24 * 60 * 60 * 1000;
 const DRAFT_INDEX = 'registration:drafts:idle';
 const monitorEveryMs = 30_000;
 
@@ -61,7 +62,7 @@ export async function saveProgress({ token: existingToken, answers, stepId, base
   const updatedAt = Date.now();
   const draft = {
     token,
-    answers,
+    answers: encryptJson(answers),
     stepId,
     updatedAt,
     baseUrl: appBaseUrl(baseUrl),
@@ -84,14 +85,18 @@ export async function loadProgress(token, requestBaseUrl) {
   const updatedAt = Date.now();
   let draft;
   if (cached) {
-    draft = JSON.parse(cached);
+    const storedDraft = JSON.parse(cached);
+    draft = {
+      ...storedDraft,
+      answers: decryptJson(storedDraft.answers),
+    };
   } else {
     const saved = await findRegistrationDraft(tokenHash);
     requirePersistentPostgres();
     if (!saved) return null;
     draft = {
       token,
-      answers: saved.answers,
+      answers: decryptJson(saved.answers),
       stepId: saved.step_id,
       updatedAt,
       baseUrl: appBaseUrl(requestBaseUrl),
@@ -100,7 +105,10 @@ export async function loadProgress(token, requestBaseUrl) {
   }
   draft.updatedAt = updatedAt;
   if (requestBaseUrl) draft.baseUrl = appBaseUrl(requestBaseUrl);
-  await redis.set(key, JSON.stringify(draft), { EX: REDIS_TTL_SECONDS });
+  await redis.set(key, JSON.stringify({
+    ...draft,
+    answers: encryptJson(draft.answers),
+  }), { EX: REDIS_TTL_SECONDS });
   await redis.zAdd(DRAFT_INDEX, { score: updatedAt + IDLE_TIMEOUT_MS, value: tokenHash });
   return { formId: 'signup', answers: draft.answers, stepId: draft.stepId };
 }
@@ -123,7 +131,11 @@ export async function processDueDrafts(now = Date.now()) {
       continue;
     }
 
-    const draft = JSON.parse(cached);
+    const storedDraft = JSON.parse(cached);
+    const draft = {
+      ...storedDraft,
+      answers: decryptJson(storedDraft.answers),
+    };
     const dueAt = draft.updatedAt + IDLE_TIMEOUT_MS;
     if (dueAt > now) {
       await redis.zAdd(DRAFT_INDEX, { score: dueAt, value: tokenHash });
@@ -135,8 +147,10 @@ export async function processDueDrafts(now = Date.now()) {
       const expiresAt = new Date(Date.now() + FALLBACK_RETENTION_MS).toISOString();
       const saved = await saveFallbackDraft({
         tokenHash,
-        answers: draft.answers,
+        answers: encryptJson(draft.answers),
         stepId: draft.stepId,
+        phone: draft.answers.phone ? encryptText(draft.answers.phone) : null,
+        smsConsent: draft.answers.contactMethods?.includes('sms') === true,
         expiresAt,
       });
       requirePersistentPostgres();
@@ -157,7 +171,10 @@ export async function processDueDrafts(now = Date.now()) {
     } catch (error) {
       logger.error({ err: error }, 'Could not archive an idle registration draft');
       const retryAt = Date.now() + 60_000;
-      await redis.set(key, JSON.stringify(draft), { EX: 5 * 60 });
+      await redis.set(key, JSON.stringify({
+        ...draft,
+        answers: encryptJson(draft.answers),
+      }), { EX: 5 * 60 });
       await redis.zAdd(DRAFT_INDEX, { score: retryAt, value: tokenHash });
     }
   }

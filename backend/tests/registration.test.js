@@ -196,7 +196,61 @@ describe('registration API and draft lifecycle', () => {
     assert.equal((await response.json()).error.code, 'DRAFT_CHANGED');
   });
 
-  it('archives an idle Redis draft for 50 years and queues a reminder only with SMS consent', async () => {
+  it('accepts a consented partner referral without requiring an identity document', async () => {
+    await startServer();
+    const token = 'b'.repeat(64);
+    const registration = {
+      ...baseRegistration,
+      idRoute: 'partner_referral',
+      referralConsent: 'yes',
+    };
+    const saved = await fetch(`${baseUrl}/api/v1/registration/drafts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token,
+        stepId: 'referralConsent',
+        answers: registration,
+      }),
+    });
+    assert.equal(saved.status, 200);
+
+    const deniedWithoutConsent = await fetch(`${baseUrl}/api/v1/registration/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token,
+        registration: { ...registration, referralConsent: 'no' },
+        document: {},
+        consent: true,
+      }),
+    });
+    assert.equal(deniedWithoutConsent.status, 400);
+
+    const referred = await fetch(`${baseUrl}/api/v1/registration/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token,
+        registration,
+        document: {},
+        consent: true,
+      }),
+    });
+    const referralResult = await referred.json();
+    assert.equal(referred.status, 200);
+    assert.equal(referralResult.status, 'partner_referral');
+    assert.equal(referralResult.registration.idRoute, 'partner_referral');
+
+    const deleted = await fetch(`${baseUrl}/api/v1/registration/drafts/load`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    assert.equal(deleted.status, 404);
+  });
+
+  it('archives an idle Redis draft for two years and queues a reminder only with SMS consent', async () => {
     await startServer();
     const answers = { ...baseRegistration };
     const { token } = await saveProgress({
@@ -208,7 +262,7 @@ describe('registration API and draft lifecycle', () => {
 
     assert.equal(
       registrationDraftTiming.fallbackRetentionMs,
-      50 * 365.25 * 24 * 60 * 60 * 1000,
+      2 * 365.25 * 24 * 60 * 60 * 1000,
     );
     assert.ok(getDemoSmsOutbox().some((message) => message.to === answers.phone));
 

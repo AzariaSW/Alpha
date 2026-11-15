@@ -1,6 +1,7 @@
 import { query } from '../database.js';
+import { decryptText } from '../../utils/dataEncryption.js';
 
-export async function saveRegistrationDraft({ tokenHash, answers, stepId, expiresAt }) {
+export async function saveRegistrationDraft({ tokenHash, answers, stepId, phone, smsConsent, expiresAt }) {
   const result = await query(`
     INSERT INTO registration_drafts
       (token_hash, answers, step_id, phone, sms_consent, expires_at)
@@ -17,8 +18,8 @@ export async function saveRegistrationDraft({ tokenHash, answers, stepId, expire
     tokenHash,
     JSON.stringify(answers),
     stepId,
-    answers.phone || null,
-    Boolean(answers.contactMethods?.includes('sms')),
+    phone,
+    smsConsent,
     expiresAt,
   ]);
   return result.rows[0] || null;
@@ -40,7 +41,7 @@ export async function claimRegistrationReminder(tokenHash) {
     WHERE token_hash = $1 AND sms_sent_at IS NULL AND expires_at > NOW()
     RETURNING phone
   `, [tokenHash]);
-  return result.rows[0] || null;
+  return result.rows[0] ? { phone: decryptText(result.rows[0].phone) } : null;
 }
 
 export async function deleteRegistrationDraft(tokenHash) {

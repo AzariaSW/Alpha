@@ -87,7 +87,25 @@ const registrationSteps = [
       { value: 'sms', icon: MdSms, label: { en: 'Text message (SMS)', simple: 'Text message' } },
       { value: 'email', icon: MdSms, label: { en: 'Email', simple: 'Email' } },
     ] },
+  { id: 'idRoute', type: 'choice', icon: MdBadge, required: true,
+    label: { en: 'Which ID or document can you use?', simple: 'What paper can you use?' },
+    hint: {
+      en: 'A refugee ID or another document is okay. If you have no document, ask to be referred to a partner.',
+      simple: 'A refugee ID or other paper is okay. No paper? Ask for a partner.' },
+    options: [
+      { value: 'national_id', icon: MdBadge, label: { en: 'Kebele ID or passport' }, say: ['kebele', 'passport', 'national id'] },
+      { value: 'refugee_id', icon: MdPublic, label: { en: 'Refugee ID' }, say: ['refugee', 'refugee id'] },
+      { value: 'other', icon: MdDescription, label: { en: 'Another document or letter' }, say: ['other', 'letter', 'document'] },
+      { value: 'partner_referral', icon: MdHandshake, label: { en: 'I have no document. Refer me to a partner.' }, say: ['no document', 'partner', 'refer me'] },
+    ] },
+  { id: 'referralConsent', type: 'choice', required: true, mustBe: 'yes',
+    showIf: (a) => a.idRoute === 'partner_referral',
+    label: { en: 'May we share your name and contact details with a partner so they can help you?' },
+    hint: { en: 'You can say no and choose another route. We do not ask for medical proof.' },
+    mustBeMsg: { en: 'Choose Yes to request a partner referral, or go back and choose another route.' },
+    options: YES_NO },
   { id: 'identityDocument', type: 'identityDocument', icon: MdBadge, required: true,
+    showIf: (a) => a.idRoute !== 'partner_referral',
     label: { en: 'Scan your identity document', simple: 'Take a photo or choose your ID' },
     hint: { en: 'Take a photo or browse for an image. Say “human review” if you cannot scan. The image stays on this device. We compare only the name and phone number read from it; this is not identity or authenticity verification.', simple: 'Take a photo or choose an image. Say “human review” if you cannot scan.' },
     validate: (v) => (v?.scanned || v?.reviewRequested) && v?.consent
@@ -116,8 +134,8 @@ export function buildSignupSchema() {
     title: { en: 'Sign up', simple: 'Sign up' },
     doneTitle: { en: 'Registration check complete.' },
     hint: {
-      en: 'Each Next saves an incomplete draft to Redis. After 30 minutes idle, a draft may be kept in PostgreSQL for up to 50 years. A resume text is queued only if you choose SMS. On successful completion, the draft is deleted and your details are returned to the host application; this service does not store completed registration details or create a login account.',
-      simple: 'Each Next saves your unfinished form. After 30 minutes with no activity, it may be kept for up to 50 years. Text reminders need your SMS permission. When you finish, the draft is deleted.',
+      en: 'Each Next saves an incomplete draft. After 30 minutes idle, it is encrypted and kept for up to two years so you can resume. A text reminder is queued only if you choose SMS. On successful completion, the draft is deleted and your details are returned to the host application; this service does not store completed registration details or create a login account.',
+      simple: 'Each Next saves your unfinished form. After 30 minutes with no activity, it is encrypted and kept for up to two years. Text reminders need your SMS permission. When you finish, the draft is deleted.',
     },
     steps: registrationSteps,
   }

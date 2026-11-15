@@ -181,9 +181,9 @@ paths:
       summary: Save registration progress to Redis
       description: >
         Saves only the current incomplete registration fields, never an image or password.
-        Each update refreshes the 30-minute idle window. The draft is archived in PostgreSQL
-        only after 30 minutes idle, with a 50-year retention period, and only if the service
-        has been configured with Redis and PostgreSQL.
+        Draft answers are encrypted before being written to Redis or PostgreSQL. Each update
+        refreshes the 30-minute idle archival window; the draft remains resumable and is deleted
+        after two years. This service requires Redis and PostgreSQL in production.
       requestBody:
         required: true
         content:
@@ -281,7 +281,7 @@ paths:
         full name and Ethiopian phone number; only if both match does it return the submitted
         registration fields. On mismatch or missing OCR fields it returns review_required.
         This text comparison does not authenticate identity or document genuineness. Completed
-        registrations are not stored. Incomplete PostgreSQL fallback drafts are retained for 50 years.
+        registrations are not stored. Incomplete drafts are retained for at most two years.
       requestBody:
         required: true
         content:
@@ -316,6 +316,12 @@ paths:
                       type: array
                       minItems: 1
                       items: { type: string, enum: [phone, sms, email] }
+                    idRoute:
+                      type: string
+                      enum: [national_id, refugee_id, other, partner_referral]
+                    referralConsent:
+                      type: string
+                      enum: [yes, no]
                 document:
                   type: object
                   properties:
@@ -323,21 +329,21 @@ paths:
                     phone: { type: string, maxLength: 25 }
       responses:
         '200':
-          description: Text comparison result; registration returned only on match
+          description: Text comparison result, partner-referral handoff, or manual review
           content:
             application/json:
               schema:
                 type: object
                 required: [status, matches, authenticityVerified]
                 properties:
-                  status: { type: string, enum: [text_match, review_required] }
+                  status: { type: string, enum: [text_match, review_required, partner_referral] }
                   matches:
                     type: object
                     properties:
                       fullName: { type: boolean }
                       phone: { type: boolean }
                   authenticityVerified: { type: boolean, enum: [false] }
-                  registration: { type: object, description: Present only on full text match }
+                  registration: { type: object, description: Present on text match or consented partner referral }
         '400':
           description: Invalid registration, date, contact permission, or document-check consent
   /api/v1/registration/demo-sms:
