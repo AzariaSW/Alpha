@@ -1,0 +1,495 @@
+openapi: 3.0.3
+info:
+  title: Digital Bridge Accessible Onboarding API
+  version: 1.0.0
+  description: >
+    Level 2 REST API for host tenant integration metadata (PostgreSQL) and
+    stateless learner onboarding/support relay (never persisted in module DB).
+    Application endpoints are versioned under `/api/v1`; responses include the
+    `API-Version: v1` header.
+servers:
+  - url: /
+    description: Current server
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+  /api/v1:
+    get:
+      summary: Report the active API version
+      responses:
+        '200':
+          description: The v1 API is active
+          headers:
+            API-Version:
+              description: Active API version
+              schema:
+                type: string
+                example: v1
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [version, status]
+                properties:
+                  version: { type: string, example: v1 }
+                  status: { type: string, example: active }
+  /api/v1/companies/register:
+    post:
+      summary: Register a host platform company and receive an API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email]
+              properties:
+                name: { type: string, example: "Savanna Learning" }
+                email: { type: string, format: email, example: "dev@savanna.example" }
+                allowedOrigins:
+                  type: array
+                  items: { type: string, format: uri }
+      responses:
+        '201':
+          description: Company registered and API key generated
+        '409':
+          description: Email already exists
+  /api/v1/companies/me:
+    get:
+      summary: Get authenticated company profile
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Company details
+        '401':
+          description: Missing or invalid API key
+  /api/v1/companies/me/credentials:
+    get:
+      summary: List active credentials for authenticated company
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Credential metadata list
+  /api/v1/companies/me/credentials/rotate:
+    post:
+      summary: Revoke existing API keys and issue a new key
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '201':
+          description: New API key generated
+  /api/v1/companies/me/allowed-origins:
+    put:
+      summary: Update allowed CORS origins for authenticated company
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Updated origins
+  /api/v1/companies/me/suspend:
+    post:
+      summary: Suspend authenticated company
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Company suspended
+  /api/v1/companies/me/activate:
+    post:
+      summary: Reactivate authenticated company
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Company activated
+  /api/v1/companies/me/audit-events:
+    get:
+      summary: List redacted audit events for authenticated company
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Audit events list
+  /api/v1/learners:
+    post:
+      summary: Relay learner registration profile (stateless, no DB persistence)
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, example: "Test Learner" }
+                phone: { type: string, example: "+251912345678" }
+                language: { type: string, default: am }
+                idRoute: { type: string, enum: [national_id, refugee_id, other, partner_referral] }
+                consent:
+                  type: object
+                  properties:
+                    accepted: { type: boolean }
+                    recordedAt: { type: string, format: date-time }
+      responses:
+        '201':
+          description: Learner relay accepted
+        '400':
+          description: Validation error
+  /api/v1/learners/refugee-id/check:
+    post:
+      summary: Compare a locally scanned refugee ID FIN with the learner-confirmed FIN
+      description: >
+        Compares the two supplied strings without storing them. A manual-only entry is accepted
+        but is not verified. A text match does not establish document authenticity or identity.
+        The document image and OCR text must not be sent to this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fin]
+              properties:
+                fin: { type: string, minLength: 1, maxLength: 64, description: Learner-confirmed FIN }
+                documentFin: { type: string, minLength: 1, maxLength: 64, description: FIN extracted on-device from the document }
+      responses:
+        '200':
+          description: Manual entry status or text comparison result; no identity verification
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, textMatch, authenticityVerified]
+                properties:
+                  status: { type: string, enum: [manual_entry, text_match, mismatch] }
+                  textMatch: { type: boolean, nullable: true }
+                  authenticityVerified: { type: boolean, enum: [false] }
+        '400':
+          description: Invalid FIN request
+  /api/v1/registration/drafts:
+    post:
+      summary: Save registration progress to Redis
+      description: >
+        Saves only the current incomplete registration fields, never an image or password.
+        Each update refreshes the 30-minute idle window. The draft is archived in PostgreSQL
+        only after 30 minutes idle, with a 50-year retention period, and only if the service
+        has been configured with Redis and PostgreSQL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stepId, answers]
+              properties:
+                token: { type: string, pattern: '^[a-f0-9]{64}$' }
+                stepId:
+                  type: string
+                  enum: [fullName, birthDate, gender, username, email, phone, contactMethods, identityDocument]
+                answers:
+                  type: object
+                  required: [fullName]
+                  properties:
+                    fullName: { type: string, maxLength: 120 }
+                    birthDate: { type: string, format: date }
+                    gender: { type: string, enum: [woman, man, another, prefer_not_to_say] }
+                    username: { type: string, maxLength: 40 }
+                    email: { type: string, format: email, maxLength: 254 }
+                    phone: { type: string, maxLength: 25 }
+                    contactMethods:
+                      type: array
+                      items: { type: string, enum: [phone, sms, email] }
+      responses:
+        '200':
+          description: Progress stored in Redis
+        '400':
+          description: Invalid data or missing contact method consent
+  /api/v1/registration/drafts/activity:
+    post:
+      summary: Refresh the 30-minute idle timer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, pattern: '^[a-f0-9]{64}$' }
+      responses:
+        '200':
+          description: Draft activity recorded
+        '404':
+          description: Draft not found
+  /api/v1/registration/drafts/load:
+    post:
+      summary: Load an incomplete registration draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, pattern: '^[a-f0-9]{64}$' }
+      responses:
+        '200':
+          description: Draft restored
+        '404':
+          description: Draft expired or unavailable
+  /api/v1/registration/drafts/delete:
+    post:
+      summary: Delete a draft when the user abandons or completes registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, pattern: '^[a-f0-9]{64}$' }
+      responses:
+        '204':
+          description: Draft deleted
+  /api/v1/registration/verify:
+    post:
+      summary: Compare registration name and phone against on-device OCR values
+      description: >
+        The photo and full OCR text remain in the browser. The service temporarily compares
+        full name and Ethiopian phone number; only if both match does it return the submitted
+        registration fields. On mismatch or missing OCR fields it returns review_required.
+        This text comparison does not authenticate identity or document genuineness. Completed
+        registrations are not stored. Incomplete PostgreSQL fallback drafts are retained for 50 years.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [registration, document, consent]
+              properties:
+                token: { type: string, pattern: '^[a-f0-9]{64}$' }
+                consent: { type: boolean, enum: [true] }
+                registration:
+                  type: object
+                  required: [fullName, birthDate, gender, email, phone, contactMethods]
+                  properties:
+                    fullName: { type: string, maxLength: 120 }
+                    birthDate: { type: string, format: date }
+                    gender: { type: string, enum: [woman, man, another, prefer_not_to_say] }
+                    username: { type: string, maxLength: 40 }
+                    email: { type: string, format: email }
+                    phone: { type: string, maxLength: 25 }
+                    contactMethods:
+                      type: array
+                      minItems: 1
+                      items: { type: string, enum: [phone, sms, email] }
+                document:
+                  type: object
+                  properties:
+                    name: { type: string, maxLength: 120 }
+                    phone: { type: string, maxLength: 25 }
+      responses:
+        '200':
+          description: Text comparison result; registration returned only on match
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, matches, authenticityVerified]
+                properties:
+                  status: { type: string, enum: [text_match, review_required] }
+                  matches:
+                    type: object
+                    properties:
+                      fullName: { type: boolean }
+                      phone: { type: boolean }
+                  authenticityVerified: { type: boolean, enum: [false] }
+                  registration: { type: object, description: Present only on full text match }
+        '400':
+          description: Invalid registration, date, contact permission, or document-check consent
+  /api/v1/registration/demo-sms:
+    get:
+      summary: Read the in-memory demo reminder outbox (development only)
+      description: This endpoint is disabled in production and does not send SMS messages.
+      responses:
+        '200':
+          description: Queued local demo messages
+        '404':
+          description: Demo outbox is disabled in production
+  /api/v1/learners/{id}:
+    patch:
+      summary: Update learner profile fields
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                phone: { type: string }
+                language: { type: string }
+      responses:
+        '200':
+          description: Updated
+        '404':
+          description: Not found
+    delete:
+      summary: Delete learner relay record
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted
+        '404':
+          description: Not found
+  /api/v1/learners/{id}/support:
+    put:
+      summary: Store learner accessibility support preferences separately from profile
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                support:
+                  type: array
+                  items: { type: string }
+                  example: ["captions", "interpreter:am"]
+      responses:
+        '200':
+          description: Support preferences stored separately
+        '404':
+          description: Not found
+  /api/v1/learners/{id}/export:
+    get:
+      summary: Export all data held for a learner
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Exported learner record
+        '404':
+          description: Not found
+  /api/v1/webhooks:
+    get:
+      summary: List registered demo webhooks and recent deliveries
+      responses:
+        '200':
+          description: Webhook list
+    post:
+      summary: Register a webhook URL for onboarding events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string, format: uri, example: "https://example.com/webhook" }
+                events:
+                  type: array
+                  items: { type: string }
+      responses:
+        '201':
+          description: Webhook registered
+  /api/v1/host/signup:
+    post:
+      summary: Host platform demo learner sign-up (returns Bearer token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, phone]
+              properties:
+                name: { type: string }
+                phone: { type: string, example: "0912345678" }
+                language: { type: string, enum: [en, am] }
+                idRoute: { type: string, enum: [national_id, refugee_id, other, partner_referral] }
+                pin: { type: string }
+      responses:
+        '201':
+          description: Account created and signed in
+        '409':
+          description: Account already exists
+  /api/v1/host/login:
+    post:
+      summary: Host platform demo learner log-in via Ethiopian phone + PIN or referral code
+      responses:
+        '200':
+          description: Signed in
+        '401':
+          description: Invalid credentials
+  /api/v1/host/me:
+    get:
+      summary: Get signed-in learner profile and support settings
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Learner account data
+    delete:
+      summary: Delete host demo learner account
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Deleted
+  /api/v1/host/me/support:
+    put:
+      summary: Update signed-in learner support preferences separately
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Updated
+  /api/v1/host/logout:
+    post:
+      summary: Revoke host demo Bearer session
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logged out
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer

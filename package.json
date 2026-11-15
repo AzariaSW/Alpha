@@ -1,0 +1,19 @@
+{
+  "name": "digital-bridge-accessible-onboarding",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "npm run build --workspace backend && npm run build --workspace frontend",
+    "start": "npm run start --workspace backend",
+    "db:migrate": "npm run db:migrate --workspace backend",
+    "test": "npm run test --workspace backend",
+    "test:a11y": "npm run test:a11y --workspace backend",
+    "lint": "npm run lint --workspaces --if-present"
+  }
+}
