@@ -55,9 +55,14 @@ const registrationSteps = [
   { id: 'fullName', type: 'text', icon: MdPerson, required: true, autoComplete: 'name', maxLength: 120,
     label: { en: 'What is your full name?', simple: 'Your full name' },
     hint: { en: 'Enter your name as it appears on your identity document.', simple: 'Your name as it is on your ID.' } },
-  { id: 'birthDate', type: 'date', icon: MdFavorite, required: true, autoComplete: 'bday',
+  { id: 'birthDate', type: 'birth', icon: MdFavorite, autoComplete: 'bday',
+    format: (value) => {
+      if (typeof value === 'string') return value
+      return [value.d, value.m, value.y].filter(Boolean).join('/')
+        + (value.cal === 'ethiopian' ? ' (Ethiopian calendar)' : '')
+    },
     label: { en: 'What is your date of birth?', simple: 'Your birthday' },
-    hint: { en: 'Enter the day, month, and year.', simple: 'Day, month, and year.' } },
+    hint: { en: 'Optional. Choose a calendar and enter the full date or just the year. You can skip.', simple: 'Optional. Enter the full date or just the year. You can skip.' } },
   { id: 'gender', type: 'choice', icon: MdPerson, required: true,
     label: { en: 'How do you describe your gender?', simple: 'Your gender' },
     options: [

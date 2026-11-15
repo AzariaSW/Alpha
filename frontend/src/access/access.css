@@ -1,21 +1,23 @@
 /* Accessible onboarding. Everything is scoped under .ax so it cannot leak into the portfolio. */
 .ax {
+  --ax-page: #f0f4f9;
   --ax-bg: #ffffff;
-  --ax-fg: #1b1b1f;
-  --ax-muted: #454b59;
-  --ax-line: #737b89;
-  --ax-card: #f4f7fb;
-  --ax-accent: #173c70;
+  --ax-fg: #1f1f1f;
+  --ax-muted: #444746;
+  --ax-line: #747775;
+  --ax-card: #ffffff;
+  --ax-accent: #1a73e8;
   --ax-accent-fg: #ffffff;
   --ax-on: #e7f0ff;
   --ax-error: #b00020;
-  --ax-focus: #cf5f00;
+  --ax-focus: #1f1f1f;
   font-size: 18px;
   line-height: 1.55;
   color: var(--ax-fg);
-  background: var(--ax-bg);
-  max-width: 58rem;
-  margin: 0 auto;
+  background: var(--ax-page);
+  min-height: 100vh;
+  width: 100%;
+  margin: 0;
   padding: clamp(0.75rem, 3vw, 2rem);
   box-sizing: border-box;
   font-family: system-ui, -apple-system, 'Segoe UI', 'Noto Sans Ethiopic', 'Nyala', sans-serif;
@@ -30,6 +32,7 @@
 .ax.ax-s4 { font-size: 36px; }
 
 .ax.ax-hc {
+  --ax-page: #000000;
   --ax-bg: #000000;
   --ax-fg: #ffffff;
   --ax-muted: #ffffff;
@@ -53,6 +56,10 @@ html.ax-page-high-contrast #root {
 html.ax-page-high-contrast {
   color-scheme: dark;
 }
+html.ax-page,
+html.ax-page body { margin: 0; background: #f0f4f9; }
+html.ax-page-hc,
+html.ax-page-hc body { background: #000000; }
 html.ax-page-high-contrast body :not(.ax):not(.ax *) {
   color: #ffffff !important;
   background-color: #000000 !important;
@@ -92,7 +99,7 @@ html.ax-page-high-contrast body :not(.ax):not(.ax *) {
 .ax-brand-mark {
   display: grid; place-items: center;
   width: 3rem; height: 3rem; flex: none;
-  border-radius: 0.9rem; color: #fff; background: #173c70;
+  border-radius: 50%; color: var(--ax-accent-fg); background: var(--ax-accent);
   font-weight: 800; letter-spacing: 0.03em;
 }
 .ax-brand-name { margin: 0; font-size: 1.15em; font-weight: 750; line-height: 1.25; }
@@ -228,4 +235,54 @@ textarea.ax-input { resize: vertical; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ax * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+
+/* Soft card layout from the reference frontend */
+.ax { --ax-frame: #fbfcfe; --ax-strip: #eef3fa; }
+.ax.ax-hc { --ax-frame: #000000; --ax-strip: #000000; }
+.ax-inner {
+  max-width: 56rem; margin: 0 auto;
+  background: var(--ax-frame);
+  border: 1.5px solid var(--ax-line); border-radius: 20px;
+  overflow: hidden;
+}
+.ax-hc .ax-inner { border-width: 3px; }
+.ax-brand { padding: 1rem 1.25rem; border-bottom: 0; }
+.ax-prefs { margin: 0; padding: 1rem 1.25rem; border-bottom: 0; background: var(--ax-strip); }
+.ax-stage { padding: clamp(0.75rem, 3vw, 1.5rem); background: var(--ax-page); }
+.ax-tabs { margin: 0 0 1rem; padding: 0; border-bottom: 0; }
+.ax-engine {
+  max-width: 34rem; margin: 1rem auto;
+  padding: clamp(1.25rem, 5vw, 2.25rem);
+  background: var(--ax-bg); border: 2px solid transparent; border-radius: 28px;
+}
+.ax-hc .ax-engine { border-color: var(--ax-line); }
+.ax-title { font-weight: 400; }
+.ax-hc .ax-brand-mark { color: #000000; }
+.ax-input { min-height: 3.5rem; border-width: 1px; border-radius: 4px; background: transparent; }
+.ax-input:focus { border-color: var(--ax-accent); }
+.ax-card { border-width: 1px; border-radius: 12px; background: transparent; }
+.ax-card.is-on { border-width: 2px; }
+.ax-btn-primary { border-radius: 999px; padding-inline: 1.75rem; }
+.ax-btn-small, .ax-tools .ax-btn { border-radius: 999px; }
+.ax-nav { justify-content: flex-start; margin-top: 1.75rem; }
+.ax-nav .ax-btn:not(.ax-btn-primary), .ax-foot .ax-btn {
+  background: transparent; border-color: transparent; color: var(--ax-accent); font-weight: 700;
+}
+.ax-nav .ax-btn-primary { margin-inline-start: auto; }
+.ax-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.25rem 0 0.75rem; }
+.ax-chip {
+  position: relative; display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0.25rem 1rem;
+  border: 1px solid var(--ax-line); border-radius: 999px; cursor: pointer;
+}
+.ax-chip.is-on { border: 2px solid var(--ax-accent); background: var(--ax-on); }
+.ax-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.ax-chip:has(input:focus-visible) { outline: 4px solid var(--ax-focus); outline-offset: 2px; }
+.ax-birth-grid { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 0.75rem; }
+.ax-hc .ax-brand,
+.ax-hc .ax-prefs,
+.ax-hc .ax-tabs { border-bottom: 1px solid var(--ax-line); }
+@media (max-width: 30rem) {
+  .ax-birth-grid { grid-template-columns: 1fr 1fr; }
+  .ax-birth-grid > :last-child { grid-column: 1 / -1; }
 }

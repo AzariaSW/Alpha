@@ -122,6 +122,57 @@ describe('registration API and draft lifecycle', () => {
       }),
     });
     assert.equal(invalidDate.status, 400);
+
+    for (const birthDate of [
+      { cal: 'ethiopian', d: '6', m: '13', y: '2014' },
+      { cal: 'gregorian', d: '', m: '', y: '9999' },
+    ]) {
+      const invalidCalendarDate = await fetch(`${baseUrl}/api/v1/registration/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: draft.token,
+          registration: { ...baseRegistration, birthDate },
+          document: { name: baseRegistration.fullName, phone: baseRegistration.phone },
+          consent: true,
+        }),
+      });
+      assert.equal(invalidCalendarDate.status, 400);
+    }
+  });
+
+  it('accepts Ethiopian-calendar dates and year-only dates while preserving the submitted value', async () => {
+    await startServer();
+    const birthDates = [
+      { cal: 'ethiopian', d: '10', m: '1', y: '2015' },
+      { cal: 'gregorian', d: '', m: '', y: '1990' },
+      undefined,
+    ];
+
+    for (const birthDate of birthDates) {
+      const registration = { ...baseRegistration, birthDate };
+      const draft = await saveProgress({
+        answers: registration,
+        stepId: 'identityDocument',
+        baseUrl,
+      });
+      const response = await fetch(`${baseUrl}/api/v1/registration/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: draft.token,
+          registration,
+          document: { name: registration.fullName, phone: registration.phone },
+          consent: true,
+        }),
+      });
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(
+        (await response.json()).registration,
+        JSON.parse(JSON.stringify(registration)),
+      );
+    }
   });
 
   it('rejects a final payload that differs from saved registration answers', async () => {

@@ -56,8 +56,11 @@ export default function AccessShell({ children, className = '' }) {
 
   useEffect(() => {
     if (outer.inShell) return undefined
-    document.documentElement.classList.toggle('ax-page-high-contrast', Boolean(prefs.contrast))
-    return () => document.documentElement.classList.remove('ax-page-high-contrast')
+    const root = document.documentElement
+    root.classList.add('ax-page')
+    root.classList.toggle('ax-page-hc', Boolean(prefs.contrast))
+    root.classList.toggle('ax-page-high-contrast', Boolean(prefs.contrast))
+    return () => root.classList.remove('ax-page', 'ax-page-hc', 'ax-page-high-contrast')
   }, [outer.inShell, prefs.contrast])
 
   if (outer.inShell) return children
@@ -79,6 +82,7 @@ export default function AccessShell({ children, className = '' }) {
   return (
     <AccessContext.Provider value={value}>
       <div lang={prefs.lang} className={`ax ${SIZES[size]}${prefs.contrast ? ' ax-hc' : ''}${prefs.simple ? ' ax-simple' : ''} ${className}`}>
+       <div className="ax-inner">
         <header className="ax-brand">
           <div className="ax-brand-mark" aria-hidden="true">DB</div>
           <div>
@@ -112,8 +116,9 @@ export default function AccessShell({ children, className = '' }) {
             {tr('simpleMode')}
           </button>
         </div>
-        {children}
+        <div className="ax-stage">{children}</div>
         <SupportDialog dialogRef={dialogRef} openCount={supportOpen} onClose={() => {}} />
+       </div>
       </div>
     </AccessContext.Provider>
   )

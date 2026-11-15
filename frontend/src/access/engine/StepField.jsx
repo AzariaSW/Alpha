@@ -2,6 +2,7 @@ import { useAccess } from '../context'
 import { pick } from '../translation helper'
 import RefugeeIdField from './RefugeeIdField'
 import IdentityDocumentField from './IdentityDocumentField'
+import BirthField from './BirthField'
 
 // Renders one question. The question text is the real <label>/<legend>, so screen readers announce it.
 export default function StepField({ step, value, onChange, error, qid }) {
@@ -55,6 +56,16 @@ export default function StepField({ step, value, onChange, error, qid }) {
         <legend className="ax-legend">{head}</legend>
         {notes}
         <IdentityDocumentField value={value} onChange={onChange} qid={qid} />
+      </fieldset>
+    )
+  }
+
+  if (step.type === 'birth') {
+    return (
+      <fieldset className="ax-fieldset" aria-describedby={describedBy}>
+        <legend className="ax-legend">{head}</legend>
+        {notes}
+        <BirthField value={value} onChange={onChange} error={error} qid={qid} />
       </fieldset>
     )
   }

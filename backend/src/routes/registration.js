@@ -12,7 +12,7 @@ import { getDemoSmsOutbox } from '../services/sms.js';
 const router = Router();
 const RESUME_TOKEN = /^[a-f0-9]{64}$/;
 const contactMethodSchema = z.enum(['phone', 'sms', 'email']);
-const birthDateSchema = z.string()
+const legacyBirthDateSchema = z.string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   .refine((value) => {
     const date = new Date(`${value}T00:00:00.000Z`);
@@ -20,6 +20,52 @@ const birthDateSchema = z.string()
       && date.toISOString().slice(0, 10) === value
       && date <= new Date();
   });
+function isValidBirthEntry(value) {
+  const { cal, d, m, y } = value;
+  if (![d, m, y].every((part) => /^\d*$/.test(part))
+    || d.length > 2 || m.length > 2 || y.length > 4) return false;
+  if (!d && !m && !y) return true;
+  if (!/^\d{4}$/.test(y)) return false;
+
+  const year = Number(y);
+  let today;
+  if (cal === 'gregorian') {
+    const [currentYear, currentMonth, currentDay] = new Date().toISOString().slice(0, 10).split('-').map(Number);
+    today = { year: currentYear, month: currentMonth, day: currentDay };
+  } else {
+    const parts = new Intl.DateTimeFormat('en-u-ca-ethiopic-nu-latn', {
+      timeZone: 'UTC',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    }).formatToParts(new Date());
+    today = Object.fromEntries(parts
+      .filter(({ type }) => ['year', 'month', 'day'].includes(type))
+      .map(({ type, value: part }) => [type, Number(part)]));
+  }
+  if (year < 1 || year > today.year) return false;
+  if (!d && !m) return true;
+  if (!d || !m) return false;
+
+  const month = Number(m);
+  const day = Number(d);
+  if (cal === 'gregorian') {
+    const date = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    return legacyBirthDateSchema.safeParse(date).success;
+  }
+
+  const maxDay = month === 13 ? (year % 4 === 3 ? 6 : 5) : 30;
+  if (month < 1 || month > 13 || day < 1 || day > maxDay) return false;
+  return year < today.year
+    || (year === today.year && (month < today.month || (month === today.month && day <= today.day)));
+}
+const birthEntrySchema = z.object({
+  cal: z.enum(['gregorian', 'ethiopian']),
+  d: z.string().regex(/^\d*$/).max(2),
+  m: z.string().regex(/^\d*$/).max(2),
+  y: z.string().regex(/^\d*$/).max(4),
+}).strict().refine(isValidBirthEntry);
+const birthDateSchema = z.union([legacyBirthDateSchema, birthEntrySchema]);
 
 const progressSchema = z.object({
   token: z.string().regex(RESUME_TOKEN).optional(),
@@ -52,7 +98,7 @@ const verifySchema = z.object({
   token: z.string().regex(RESUME_TOKEN),
   registration: z.object({
     fullName: z.string().trim().min(1).max(120),
-    birthDate: birthDateSchema,
+    birthDate: birthDateSchema.optional(),
     gender: z.enum(['woman', 'man', 'another', 'prefer_not_to_say']),
     username: z.string().trim().max(40).refine((value) => !value || /^[a-zA-Z0-9._-]{3,40}$/.test(value)).optional(),
     email: z.string().trim().email().max(254),
@@ -72,6 +118,12 @@ function normalizeName(value = '') {
     .toLocaleLowerCase('en')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();
+}
+
+function birthDateKey(value) {
+  return value && typeof value === 'object'
+    ? [value.cal, value.d, value.m, value.y].join('\u0000')
+    : value ?? '';
 }
 
 router.post('/drafts', async (req, res, next) => {
@@ -156,7 +208,7 @@ router.post('/verify', async (req, res, next) => {
     const submittedContactMethods = [...input.registration.contactMethods].sort();
     const draftMatchesSubmission = [
       savedAnswers.fullName === input.registration.fullName,
-      savedAnswers.birthDate === input.registration.birthDate,
+      birthDateKey(savedAnswers.birthDate) === birthDateKey(input.registration.birthDate),
       savedAnswers.gender === input.registration.gender,
       (savedAnswers.username || '') === (input.registration.username || ''),
       savedAnswers.email === input.registration.email,

@@ -201,7 +201,17 @@ paths:
                   required: [fullName]
                   properties:
                     fullName: { type: string, maxLength: 120 }
-                    birthDate: { type: string, format: date }
+                    birthDate:
+                      description: Legacy ISO Gregorian date or calendar-aware date parts; year-only entries are supported.
+                      oneOf:
+                        - { type: string, format: date }
+                        - type: object
+                          required: [cal, d, m, y]
+                          properties:
+                            cal: { type: string, enum: [gregorian, ethiopian] }
+                            d: { type: string, maxLength: 2 }
+                            m: { type: string, maxLength: 2 }
+                            y: { type: string, maxLength: 4 }
                     gender: { type: string, enum: [woman, man, another, prefer_not_to_say] }
                     username: { type: string, maxLength: 40 }
                     email: { type: string, format: email, maxLength: 254 }
@@ -284,10 +294,20 @@ paths:
                 consent: { type: boolean, enum: [true] }
                 registration:
                   type: object
-                  required: [fullName, birthDate, gender, email, phone, contactMethods]
+                  required: [fullName, gender, email, phone, contactMethods]
                   properties:
                     fullName: { type: string, maxLength: 120 }
-                    birthDate: { type: string, format: date }
+                    birthDate:
+                      description: Legacy ISO Gregorian date or calendar-aware date parts; year-only entries are supported.
+                      oneOf:
+                        - { type: string, format: date }
+                        - type: object
+                          required: [cal, d, m, y]
+                          properties:
+                            cal: { type: string, enum: [gregorian, ethiopian] }
+                            d: { type: string, maxLength: 2 }
+                            m: { type: string, maxLength: 2 }
+                            y: { type: string, maxLength: 4 }
                     gender: { type: string, enum: [woman, man, another, prefer_not_to_say] }
                     username: { type: string, maxLength: 40 }
                     email: { type: string, format: email }

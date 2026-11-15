@@ -13,6 +13,7 @@ import PartnerRegister from "./PartnerRegister";
 import { useAccess } from "./context";
 import { pick } from "./translation helper";
 import { buildSignupSchema } from "./schemas";
+import { normalizeBirthDate } from "./engine/validate";
 import {
   tokenFromUrl,
   loadClaim,
@@ -245,6 +246,9 @@ function Inner({ partners, onComplete, onReviewRequired }) {
     const safeAnswers = Object.fromEntries(
       Object.entries(answers).filter(([key]) => key !== "identityDocument"),
     );
+    const birthDate = normalizeBirthDate(safeAnswers.birthDate);
+    if (birthDate === undefined) delete safeAnswers.birthDate;
+    else safeAnswers.birthDate = birthDate;
     const token = await saveRegistrationDraft({
       token: currentToken || draftToken,
       answers: safeAnswers,
@@ -255,6 +259,7 @@ function Inner({ partners, onComplete, onReviewRequired }) {
   };
   const save = async (answers) => {
     const document = answers.identityDocument || {};
+    const birthDate = normalizeBirthDate(answers.birthDate);
     const response = await fetch("/api/v1/registration/verify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -262,7 +267,7 @@ function Inner({ partners, onComplete, onReviewRequired }) {
         token: draftToken,
         registration: {
           fullName: answers.fullName,
-          birthDate: answers.birthDate,
+          ...(birthDate === undefined ? {} : { birthDate }),
           gender: answers.gender,
           ...(answers.username ? { username: answers.username } : {}),
           email: answers.email,

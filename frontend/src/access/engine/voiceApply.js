@@ -24,7 +24,7 @@ export function applyVoice(step, text, current, tr, lang, simple) {
     }
     return { ok: true, value: email }
   }
-  if (step.type === 'date') {
+  if (step.type === 'date' || step.type === 'birth') {
     if (!/\b\d{4}\b/.test(said)) return { ok: false, message: tr('voiceDateHelp') }
     const date = new Date(said)
     if (Number.isNaN(date.getTime())) return { ok: false, message: tr('voiceDateHelp') }
@@ -33,7 +33,9 @@ export function applyVoice(step, text, current, tr, lang, simple) {
       String(date.getMonth() + 1).padStart(2, '0'),
       String(date.getDate()).padStart(2, '0'),
     ].join('-')
-    return { ok: true, value }
+    return step.type === 'birth'
+      ? { ok: true, value: { cal: 'gregorian', d: value.slice(8), m: value.slice(5, 7), y: value.slice(0, 4) } }
+      : { ok: true, value }
   }
   if (step.type === 'identityDocument') {
     const next = { ...current }

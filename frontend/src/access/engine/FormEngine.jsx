@@ -102,6 +102,7 @@ export default function FormEngine({
   const show = (s, v) =>
     isEmpty(v) ? tr('skipped')
       : s.type === 'identityDocument' ? (v.reviewRequested ? tr('requestHumanReview') : tr('docScanDone'))
+        : s.type === 'birth' && s.format ? s.format(v)
         : Array.isArray(v) ? v.map((x) => optionLabel(s, x)).join(', ')
           : s.options ? optionLabel(s, v) : v
 
