@@ -229,3 +229,6 @@ textarea.ax-input { resize: vertical; }
 @media (prefers-reduced-motion: reduce) {
   .ax * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+.ax-no-voice:empty { margin: 0; }
+.ax-no-voice:not(:empty) { color: inherit; border-left: 4px solid #b45309; background: #fff7ed; padding: 0.5rem 0.75rem; border-radius: 4px; }
+.ax-hc .ax-no-voice:not(:empty) { background: transparent; border-left-color: currentColor; }

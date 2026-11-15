@@ -89,6 +89,7 @@ export async function createResume({ formId, answers, stepId, phone }) {
 export const loadResume = (token) => loadToken('resume', token)
 export const dropResume = (token) => token && store.remove(`resume:${token}`)
 
+export const sendRegistrationResumeLink = (token) => registrationDraftRequest('/send-link', { token })
 export const getRegistrationDraftToken = () => store.get(REGISTRATION_TOKEN_KEY, null)
 export const saveRegistrationDraftToken = (token) => store.set(REGISTRATION_TOKEN_KEY, token)
 export const clearRegistrationDraftToken = () => store.remove(REGISTRATION_TOKEN_KEY)

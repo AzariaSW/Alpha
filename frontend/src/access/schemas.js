@@ -70,8 +70,9 @@ const registrationSteps = [
     label: { en: 'Username (optional)', simple: 'Username (optional)' },
     hint: { en: 'This registration does not create a password or login account.', simple: 'This does not make a login account.' },
     validate: (v) => v && !/^[a-zA-Z0-9._-]{3,40}$/.test(v) ? 'Use 3–40 letters, numbers, dots, underscores or hyphens.' : '' },
-  { id: 'email', type: 'email', icon: MdSms, required: true, autoComplete: 'email', maxLength: 254,
-    label: { en: 'What is your email address?', simple: 'Your email address' } },
+  { id: 'email', type: 'email', icon: MdSms, autoComplete: 'email', maxLength: 254,
+    label: { en: 'What is your email address? (optional)', simple: 'Your email (optional)' },
+    hint: { en: 'No email is fine. You can skip this.', simple: 'No email? Press Skip.' } },
   { id: 'phone', type: 'tel', icon: MdPhone, required: true, autoComplete: 'tel', maxLength: 25,
     label: { en: 'What is your phone number?', simple: 'Your phone number' } },
   { id: 'contactMethods', type: 'multi', icon: MdSms, required: true,
@@ -81,13 +82,38 @@ const registrationSteps = [
       { value: 'phone', icon: MdPhone, label: { en: 'Phone call', simple: 'Phone call' } },
       { value: 'sms', icon: MdSms, label: { en: 'Text message (SMS)', simple: 'Text message' } },
       { value: 'email', icon: MdSms, label: { en: 'Email', simple: 'Email' } },
-    ] },
+    ],
+    validate: (v, a) => Array.isArray(v) && v.includes('email') && !a.email?.trim()
+      ? { en: 'You chose email, but there is no email address. Go back to add one, or choose another way.', simple: 'You have no email. Pick phone or text.' }
+      : '' },
+  { ...idRouteStep },
   { id: 'identityDocument', type: 'identityDocument', icon: MdBadge, required: true,
+    showIf: (a) => !a.idRoute || a.idRoute === 'kebele',
     label: { en: 'Scan your identity document', simple: 'Take a photo or choose your ID' },
     hint: { en: 'Take a photo or browse for an image. Say “human review” if you cannot scan. The image stays on this device. We compare only the name and phone number read from it; this is not identity or authenticity verification.', simple: 'Take a photo or choose an image. Say “human review” if you cannot scan.' },
     validate: (v) => (v?.scanned || v?.reviewRequested) && v?.consent
       ? ''
       : 'Scan or choose an image, or request human review, and agree to the data check.' },
+  { ...refugeeFinStep },
+  { id: 'otherDocument', type: 'text', icon: MdDescription, maxLength: 200,
+    showIf: (a) => a.idRoute === 'other-doc',
+    label: { en: 'What document do you have?', simple: 'What paper do you have?' },
+    hint: {
+      en: 'For example a school, church, community or work letter. Bring it when you first visit. You can skip.',
+      simple: 'For example a letter from school or church. You can skip.' } },
+  { id: 'partner', type: 'choice', icon: MdHandshake, required: true,
+    showIf: (a) => a.idRoute === 'refer',
+    label: { en: 'Which partner should help you?', simple: 'Which group can help you?' },
+    hint: { en: 'They help you register without any document.', simple: 'They help you with no papers.' },
+    options: DEFAULT_PARTNERS.map((p) => ({ icon: MdHandshake, ...p })) },
+  { id: 'partnerShare', type: 'choice', icon: MdHelp, required: true, mustBe: 'yes',
+    showIf: (a) => a.idRoute === 'refer',
+    label: { en: 'May we give your name and phone number to this partner so they can contact you?', simple: 'Can the group get your name and phone?' },
+    mustBeMsg: {
+      en: 'The partner needs your name and phone to contact you. Go back and choose another ID option if you do not want to share them.',
+      simple: 'The group needs your phone. Or go back and pick another option.' },
+    options: YES_NO },
+  { ...needsStep },
 ]
 
 const partnerBaseSteps = [
@@ -109,10 +135,10 @@ export function buildSignupSchema() {
   return {
     id: 'signup',
     title: { en: 'Sign up', simple: 'Sign up' },
-    doneTitle: { en: 'Registration check complete.' },
+    doneTitle: { en: 'Thank you. Your sign-up is sent.', simple: 'Done. You are signed up.' },
     hint: {
-      en: 'Each Next saves an incomplete draft to Redis. After 30 minutes idle, a draft may be kept in PostgreSQL for up to 50 years. A resume text is queued only if you choose SMS. On successful completion, the draft is deleted and your details are returned to the host application; this service does not store completed registration details or create a login account.',
-      simple: 'Each Next saves your unfinished form. After 30 minutes with no activity, it may be kept for up to 50 years. Text reminders need your SMS permission. When you finish, the draft is deleted.',
+      en: 'Each time you press Next, your answers are saved so you can stop and come back later. If you chose SMS, we text you a link to continue. Your support choices stay on this device. When you finish, the unfinished copy is deleted.',
+      simple: 'Each Next saves your answers. You can stop and come back. When you finish, the saved copy is deleted.',
     },
     steps: registrationSteps,
   }

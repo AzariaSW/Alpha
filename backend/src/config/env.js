@@ -15,7 +15,9 @@ const schema = z.object({
   PUBLIC_APP_URL: z.string().url().optional(),
   RABBITMQ_URL: z.string().optional().default(''),
   API_KEY_PEPPER: z.string().min(32).default('dev-accessibility-onboarding-pepper-key-32bytes!'),
-  CORS_ORIGIN: z.string().default('*')
+  CORS_ORIGIN: z.string().default('*'),
+  DEMO_SMS_OUTBOX: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
 });
 
 const parsed = schema.safeParse({
@@ -26,6 +28,8 @@ const parsed = schema.safeParse({
   RABBITMQ_URL: process.env.RABBITMQ_URL || undefined,
   API_KEY_PEPPER: process.env.API_KEY_PEPPER || undefined,
   CORS_ORIGIN: process.env.CORS_ORIGIN || undefined,
+  DEMO_SMS_OUTBOX: process.env.DEMO_SMS_OUTBOX || undefined,
+  TRUST_PROXY: process.env.TRUST_PROXY || undefined,
 });
 
 if (!parsed.success) {

@@ -16,7 +16,7 @@ export const STRINGS = {
     readAll: 'Read my answers to me',
     startOver: 'Start again',
     reviewTitle: 'Check your answers',
-    reviewHint: 'Press "Change" next to anything you want to fix. Press "Send" when you are ready to check the document text.',
+    reviewHint: 'Press "Change" next to anything you want to fix. Press "Send" when you are ready.',
     privateNote: 'Private. Only you and the support team can see this.',
     sending: 'Sending…',
     sendFailed: 'We could not send or check your answers. They are still on this screen. Please try again.',
@@ -129,7 +129,8 @@ export const STRINGS = {
     supportTitle: 'Ask for support privately',
     supportDone: 'Your request is saved privately. You did not have to explain why or show any proof.',
     resumeFound: 'Welcome back. You can carry on where you stopped.',
-    loading: 'Loading…' }
+    loading: 'Loading…',
+    noVoice: 'This device cannot read aloud yet: no speech voice is installed. On Android, install or turn on "Speech Services by Google". On a computer, use Chrome or Edge with a system voice. All questions are also shown as text.' }
 }
 
 export function translate(lang, key, vars) {

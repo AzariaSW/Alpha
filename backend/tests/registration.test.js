@@ -124,6 +124,125 @@ describe('registration API and draft lifecycle', () => {
     assert.equal(invalidDate.status, 400);
   });
 
+  it('completes a no-document registration through a partner referral without document consent', async () => {
+    await startServer();
+    const registration = {
+      fullName: baseRegistration.fullName,
+      birthDate: baseRegistration.birthDate,
+      gender: baseRegistration.gender,
+      phone: baseRegistration.phone,
+      contactMethods: ['sms'],
+      idRoute: 'refer',
+      partner: 'aaapd',
+      partnerShare: 'yes',
+    };
+    const saved = await fetch(`${baseUrl}/api/v1/registration/drafts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stepId: 'partnerShare', answers: registration }),
+    });
+    assert.equal(saved.status, 200);
+    const { token } = await saved.json();
+
+    const withoutShareConsent = await fetch(`${baseUrl}/api/v1/registration/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, registration: { ...registration, partnerShare: 'no' } }),
+    });
+    assert.equal(withoutShareConsent.status, 400);
+
+    const response = await fetch(`${baseUrl}/api/v1/registration/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, registration }),
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.status, 'referred');
+    assert.equal(body.idRoute, 'refer');
+    assert.match(body.referralCode, /^DB-REF-[A-Z2-9]{6}$/);
+    assert.deepEqual(body.registration, registration);
+
+    const gone = await fetch(`${baseUrl}/api/v1/registration/drafts/load`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    assert.equal(gone.status, 404);
+  });
+
+  it('accepts a manually entered refugee FIN and rejects a refugee route with no FIN', async () => {
+    await startServer();
+    const registration = {
+      ...baseRegistration,
+      idRoute: 'refugee',
+      refugeeFin: { mode: 'manual', fin: 'ETH-12345' },
+    };
+    const draft = await saveProgress({ answers: registration, stepId: 'refugeeFin', baseUrl });
+
+    const missingFin = await fetch(`${baseUrl}/api/v1/registration/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: draft.token, registration: { ...registration, refugeeFin: { mode: 'manual' } } }),
+    });
+    assert.equal(missingFin.status, 400);
+
+    const accepted = await fetch(`${baseUrl}/api/v1/registration/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: draft.token, registration }),
+    });
+    assert.equal(accepted.status, 200);
+    const body = await accepted.json();
+    assert.equal(body.status, 'received');
+    assert.equal(body.idRoute, 'refugee');
+    assert.equal(body.referralCode, undefined);
+  });
+
+  it('still requires document comparison consent on the kebele route', async () => {
+    await startServer();
+    const draft = await saveProgress({ answers: baseRegistration, stepId: 'identityDocument', baseUrl });
+    const response = await fetch(`${baseUrl}/api/v1/registration/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: draft.token,
+        registration: baseRegistration,
+        document: { name: baseRegistration.fullName, phone: baseRegistration.phone },
+      }),
+    });
+    assert.equal(response.status, 400);
+  });
+
+  it('texts a resume link only to the saved phone of a learner who allowed SMS', async () => {
+    await startServer();
+    const withSms = await saveProgress({ answers: baseRegistration, stepId: 'contactMethods', baseUrl });
+    const before = getDemoSmsOutbox().length;
+    const sent = await fetch(`${baseUrl}/api/v1/registration/drafts/send-link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: withSms.token }),
+    });
+    assert.equal(sent.status, 200);
+    const outbox = getDemoSmsOutbox();
+    assert.equal(outbox.length, before + 1);
+    assert.equal(outbox.at(-1).to, baseRegistration.phone);
+    assert.ok(outbox.at(-1).body.includes(`?resume=${withSms.token}`));
+
+    const noSms = await saveProgress({
+      answers: { ...baseRegistration, contactMethods: ['email'] },
+      stepId: 'contactMethods',
+      baseUrl,
+    });
+    const refused = await fetch(`${baseUrl}/api/v1/registration/drafts/send-link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: noSms.token }),
+    });
+    assert.equal(refused.status, 409);
+    assert.equal(getDemoSmsOutbox().length, before + 1);
+  });
+
   it('rejects a final payload that differs from saved registration answers', async () => {
     await startServer();
     const draft = await saveProgress({

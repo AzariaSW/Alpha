@@ -55,27 +55,70 @@ export function useListen(lang) {
   return { supported, listening, error, start, stop }
 }
 
+export const NO_VOICE_EVENT = 'ax:no-voice'
+
+function loadVoices(synth) {
+  const ready = synth.getVoices()
+  if (ready.length) return Promise.resolve(ready)
+  return new Promise((resolve) => {
+    const done = () => {
+      synth.removeEventListener('voiceschanged', done)
+      clearTimeout(timer)
+      resolve(synth.getVoices())
+    }
+    const timer = setTimeout(done, 1500)
+    synth.addEventListener('voiceschanged', done)
+  })
+}
+
+function pickVoice(voices, bcp47) {
+  const base = bcp47.split('-')[0]
+  return voices.find((v) => v.lang === bcp47)
+    || voices.find((v) => v.lang?.replace('_', '-').startsWith(`${base}-`) || v.lang === base)
+    || null
+}
+
+let speakTurn = 0
+
 export function speak(text, lang = 'en', onDone) {
   if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
+    if (typeof window !== 'undefined' && text) window.dispatchEvent(new CustomEvent(NO_VOICE_EVENT))
     onDone?.()
     return false
   }
-  window.speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(text)
-  u.lang = SPEECH_LANG[lang] || lang
-  u.rate = 0.9
+  const synth = window.speechSynthesis
+  const turn = ++speakTurn
+  synth.cancel()
   let finished = false
   const finish = () => {
     if (finished) return
     finished = true
     onDone?.()
   }
-  u.onend = finish
-  u.onerror = finish
-  window.speechSynthesis.speak(u)
+  loadVoices(synth).then((voices) => {
+    if (turn !== speakTurn) return finish()
+    if (!voices.length) {
+      window.dispatchEvent(new CustomEvent(NO_VOICE_EVENT))
+      return finish()
+    }
+    const bcp47 = SPEECH_LANG[lang] || lang
+    const u = new SpeechSynthesisUtterance(text)
+    u.lang = bcp47
+    const voice = pickVoice(voices, bcp47)
+    if (voice) u.voice = voice
+    u.rate = 0.9
+    u.onend = finish
+    u.onerror = finish
+    setTimeout(() => {
+      if (turn !== speakTurn) return finish()
+      synth.resume()
+      synth.speak(u)
+    }, 60)
+  })
   return true
 }
 export function stopSpeaking() {
+  speakTurn += 1
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel()
 }
 

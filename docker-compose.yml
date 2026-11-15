@@ -13,6 +13,7 @@ services:
       REDIS_URL: redis://:local_redis_password@redis:6379
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:8080}
       API_KEY_PEPPER: ${API_KEY_PEPPER:-dev-accessibility-onboarding-pepper-key-32bytes!}
+      DEMO_SMS_OUTBOX: ${DEMO_SMS_OUTBOX:-false}
     command: ["sh", "-c", "npm run db:migrate && exec npm start"]
     depends_on:
       postgres:

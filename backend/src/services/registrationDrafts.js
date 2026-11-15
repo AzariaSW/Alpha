@@ -105,6 +105,18 @@ export async function loadProgress(token, requestBaseUrl) {
   return { formId: 'signup', answers: draft.answers, stepId: draft.stepId };
 }
 
+export async function sendResumeLink(token, requestBaseUrl) {
+  const draft = await loadProgress(token, requestBaseUrl);
+  if (!draft) return { status: 'not_found' };
+  const { phone, contactMethods } = draft.answers;
+  if (!phone || !contactMethods?.includes('sms')) return { status: 'sms_not_allowed' };
+  const sms = await queueRegistrationReminder({
+    to: phone,
+    url: resumeUrl(token, appBaseUrl(requestBaseUrl)),
+  });
+  return { status: 'queued', delivered: sms.delivered };
+}
+
 export async function discardProgress(token) {
   const tokenHash = hashToken(token);
   await redis.del(draftKey(tokenHash));
