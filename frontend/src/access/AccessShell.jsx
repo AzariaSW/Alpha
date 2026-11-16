@@ -6,7 +6,7 @@ import { translate } from './translation helper'
 import { store, saveSupport } from './store'
 import { supportRequestSchema } from './schemas'
 import FormEngine from './engine/FormEngine'
-import { speak, stopSpeaking } from './voice'
+import { speak, stopSpeaking, NO_VOICE_EVENT } from './voice'
 
 const SIZES = ['ax-s0', 'ax-s1', 'ax-s2', 'ax-s3', 'ax-s4']
 const MAX_SIZE = SIZES.length - 1
@@ -52,6 +52,7 @@ export default function AccessShell({ children, className = '' }) {
   const outer = useAccess()
   const [prefs, setPrefs] = useState(() => ({ ...readPrefs(), lang: 'en' }))
   const [supportOpen, setSupportOpen] = useState(0)
+  const [noVoice, setNoVoice] = useState(false)
   const dialogRef = useRef(null)
   const [sizeToast, setSizeToast] = useState('')
   const toastTimer = useRef(null)
@@ -65,6 +66,13 @@ export default function AccessShell({ children, className = '' }) {
     root.classList.toggle('ax-page-hc', contrast)
     return () => root.classList.remove('ax-page', 'ax-page-hc')
   }, [outer.inShell, contrast])
+
+  useEffect(() => {
+    if (outer.inShell) return undefined
+    const show = () => setNoVoice(true)
+    window.addEventListener(NO_VOICE_EVENT, show)
+    return () => window.removeEventListener(NO_VOICE_EVENT, show)
+  }, [outer.inShell])
 
   useEffect(() => {
     if (outer.inShell) return undefined
@@ -134,6 +142,9 @@ export default function AccessShell({ children, className = '' }) {
             <MdVisibility aria-hidden="true" /> {tr('simpleMode')}
           </button>
         </div>
+        <p className="ax-hint ax-no-voice" role="status">
+          {noVoice ? tr('noVoice') : ''}
+        </p>
         <div className="ax-stage">{children}</div>
         <SupportDialog dialogRef={dialogRef} openCount={supportOpen} onClose={() => {}} />
        </div>

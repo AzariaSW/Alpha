@@ -376,3 +376,9 @@ html.ax-page-hc, html.ax-page-hc body { background: #000000; }
 .ax-nav { justify-content: space-between; }
 .ax-nav .ax-btn:not(.ax-btn-primary), .ax-foot .ax-btn { padding-inline: 0; justify-content: flex-start; }
 .ax-foot { justify-content: flex-start; gap: 0.25rem 1.5rem; }
+
+/* Warning shown when the device has no speech voice */
+.ax-no-voice:empty { margin: 0; }
+.ax-no-voice:not(:empty) { color: inherit; border-left: 4px solid #b45309; background: #fff7ed; padding: 0.5rem 0.75rem; border-radius: 4px; }
+.ax-hc .ax-no-voice:not(:empty) { background: transparent; border-left-color: currentColor; }
+.ax-inner > .ax-no-voice:not(:empty) { margin: 0.75rem 1.25rem 0; }

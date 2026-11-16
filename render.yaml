@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: digital-bridge-onboarding
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: TRUST_PROXY
+        value: "1"
+
+      - key: DEMO_SMS_OUTBOX
+        value: "true"
+
+      - key: API_KEY_PEPPER
+        generateValue: true
+
+      - key: DATABASE_URL
+        sync: false
+
+      - key: REDIS_URL
+        sync: false
+
+      - key: PUBLIC_APP_URL
+        sync: false

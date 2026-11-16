@@ -6,13 +6,14 @@ import {
   MdCheck,
   MdDelete,
   MdMic,
+  MdSms,
 } from "react-icons/md";
 import AccessShell from "./AccessShell";
 import FormEngine from "./engine/FormEngine";
 import PartnerRegister from "./PartnerRegister";
 import { useAccess } from "./context";
 import { pick } from "./translation helper";
-import { buildSignupSchema } from "./schemas";
+import { buildSignupSchema, DEFAULT_PARTNERS } from "./schemas";
 import {
   tokenFromUrl,
   loadClaim,
@@ -22,6 +23,7 @@ import {
   getRegistrationDraftToken,
   saveRegistrationDraft,
   refreshRegistrationDraftActivity,
+  sendRegistrationResumeLink,
   loadRegistrationDraft,
   deleteRegistrationDraft,
   clearRegistrationDraftToken,
@@ -59,8 +61,84 @@ const T = {
     en: "This resume link is no longer available. Start a new registration or ask a staff member for help.",
   },
   resumeNew: { en: "Start a new registration" },
+  receivedRefugee: {
+    en: "You are registered with your refugee ID. A staff member will check the number when you first visit. You can start learning now.",
+    simple: "You are signed up. Bring your refugee ID when you visit. You can start now.",
+  },
+  receivedOther: {
+    en: "You are registered. Please bring your document when you first visit, and a staff member will look at it. You can start learning now.",
+    simple: "You are signed up. Bring your paper when you visit. You can start now.",
+  },
+  referred: {
+    en: "You are registered. {partner} will contact you to help with documents. You do not need any proof to start learning.",
+    simple: "You are signed up. {partner} will call or text you. You can start now.",
+  },
+  referralCode: { en: "Your reference code. Keep it to show the partner:", simple: "Your code. Show it to the group:" },
+  supportKept: {
+    en: "Your support choices are saved on this device only. They were not sent with your profile.",
+    simple: "Your support choices stay on this phone.",
+  },
   next: { en: "Go to jobs" },
+  textLink: { en: "Text me a link to continue later", simple: "Text me a link" },
+  textLinkSent: {
+    en: "We texted a link to your phone. Open it on any phone to carry on. No time limit.",
+    simple: "We sent a link to your phone.",
+  },
+  textLinkFailed: {
+    en: "We could not send the link. Your answers are still saved. You can try again.",
+    simple: "Could not send. Your answers are still saved.",
+  },
 };
+
+function TextResumeLink({ answers, resumeToken }) {
+  const { lang, simple } = useAccess();
+  const t = (k) => pick(T[k], lang, simple);
+  const [state, setState] = useState("idle");
+  const canText =
+    resumeToken && answers.phone && answers.contactMethods?.includes("sms");
+  if (!canText) return null;
+  return (
+    <>
+      <button
+        type="button"
+        className="ax-btn ax-btn-ghost"
+        disabled={state === "sending"}
+        onClick={async () => {
+          setState("sending");
+          try {
+            await sendRegistrationResumeLink(resumeToken);
+            setState("sent");
+          } catch {
+            setState("failed");
+          }
+        }}
+      >
+        <MdSms aria-hidden="true" /> {t("textLink")}
+      </button>
+      <p className="ax-hint" role="status">
+        {state === "sent" ? t("textLinkSent") : state === "failed" ? t("textLinkFailed") : ""}
+      </p>
+    </>
+  );
+}
+
+const LOCAL_ONLY_ANSWERS = new Set(["identityDocument", "support"]);
+
+function serverAnswers(answers, schema) {
+  const hidden = new Set(
+    schema.steps.filter((s) => s.showIf && !s.showIf(answers)).map((s) => s.id),
+  );
+  return Object.fromEntries(
+    Object.entries(answers).filter(
+      ([key, value]) =>
+        !LOCAL_ONLY_ANSWERS.has(key) &&
+        !hidden.has(key) &&
+        value !== undefined &&
+        value !== null &&
+        !(typeof value === "string" && !value.trim()),
+    ),
+  );
+}
 
 function Choose({ onPick, onVoicePick, hasDraft }) {
   const { lang, simple, tr, setPrefs } = useAccess();
@@ -242,9 +320,7 @@ function Inner({ partners, onComplete, onReviewRequired }) {
   }, [stage, resumeToken]);
 
   const saveProgress = async ({ answers, stepId, resumeToken: currentToken }) => {
-    const safeAnswers = Object.fromEntries(
-      Object.entries(answers).filter(([key]) => key !== "identityDocument"),
-    );
+    const safeAnswers = serverAnswers(answers, schema);
     const token = await saveRegistrationDraft({
       token: currentToken || draftToken,
       answers: safeAnswers,
@@ -255,33 +331,39 @@ function Inner({ partners, onComplete, onReviewRequired }) {
   };
   const save = async (answers) => {
     const document = answers.identityDocument || {};
+    const registration = serverAnswers(answers, schema);
+    const isKebele = !registration.idRoute || registration.idRoute === "kebele";
+    if (Array.isArray(answers.support) && answers.support.length) {
+      saveSupport({ needs: answers.support });
+    }
     const response = await fetch("/api/v1/registration/verify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         token: draftToken,
-        registration: {
-          fullName: answers.fullName,
-          birthDate: answers.birthDate,
-          gender: answers.gender,
-          ...(answers.username ? { username: answers.username } : {}),
-          email: answers.email,
-          phone: answers.phone,
-          contactMethods: answers.contactMethods,
-        },
-        document: { name: document.documentName, phone: document.documentPhone },
-        consent: document.consent === true,
+        registration,
+        ...(isKebele
+          ? {
+              document: { name: document.documentName, phone: document.documentPhone },
+              consent: document.consent === true,
+            }
+          : {}),
       }),
     });
     const result = await response.json();
     if (!response.ok) {
       throw new Error(result.error?.message || tr("sendFailed"));
     }
-    if (result.status === "text_match") {
+    const finished = result.status !== "review_required";
+    if (finished) {
       clearRegistrationDraftToken();
       clearResumeUrl();
     }
-    return { ...result, preserveDraft: result.status !== "text_match" };
+    return {
+      ...result,
+      supportSaved: Array.isArray(answers.support) && answers.support.length > 0,
+      preserveDraft: !finished,
+    };
   };
   const discardDraft = async (token) => {
     await deleteRegistrationDraft(token);
@@ -305,18 +387,39 @@ function Inner({ partners, onComplete, onReviewRequired }) {
       );
     }
 
+    const partnerLabel =
+      DEFAULT_PARTNERS.find((p) => p.value === result?.registration?.partner)?.label ||
+      "A partner organisation";
+    const message =
+      result?.status === "referred"
+        ? t("referred").replace("{partner}", partnerLabel)
+        : result?.status === "received"
+          ? t(result.idRoute === "refugee" ? "receivedRefugee" : "receivedOther")
+          : onComplete
+            ? t("registrationComplete")
+            : t("registrationCompleteNoHandler");
     return (
       <>
-        <p role="status">{onComplete ? t("registrationComplete") : t("registrationCompleteNoHandler")}</p>
+        <p role="status">{message}</p>
+        {result?.referralCode && (
+          <p>
+            {t("referralCode")} <strong>{result.referralCode}</strong>
+          </p>
+        )}
+        {result?.supportSaved && <p className="ax-hint">{t("supportKept")}</p>}
         {onComplete && (
           <button
             type="button"
             className="ax-btn ax-btn-primary"
-            onClick={() => onComplete({ ...result.registration, verification: {
-              status: result.status,
-              matches: result.matches,
-              authenticityVerified: result.authenticityVerified,
-            } })}
+            onClick={() => onComplete({
+              ...result.registration,
+              ...(result.referralCode ? { referralCode: result.referralCode } : {}),
+              verification: {
+                status: result.status,
+                matches: result.matches,
+                authenticityVerified: result.authenticityVerified,
+              },
+            })}
           >
             {t("next")}
           </button>
@@ -383,6 +486,7 @@ function Inner({ partners, onComplete, onReviewRequired }) {
       onDiscardDraft={discardDraft}
       onSubmit={save}
       autoStartVoiceControl={startVoiceOnly}
+      footerExtra={(props) => <TextResumeLink {...props} />}
       doneContent={done}
     />
   );

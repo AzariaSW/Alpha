@@ -23,6 +23,7 @@ const sharedModuleDir = path.resolve(rootDir, '..', 'shared', 'module');
 
 export const app = express();
 app.disable('x-powered-by');
+if (env.TRUST_PROXY > 0) app.set('trust proxy', env.TRUST_PROXY);
 app.use(
   helmet({
     contentSecurityPolicy: false,

@@ -31,6 +31,7 @@ export default function FormEngine({
   onProgress,
   onActivity,
   onDiscardDraft,
+  footerExtra,
 }) {
   const { lang, simple, tr, openSupport, prefs, setPrefs } = useAccess()
   const uid = useId()
@@ -102,6 +103,7 @@ export default function FormEngine({
   const show = (s, v) =>
     isEmpty(v) ? tr('skipped')
       : s.type === 'identityDocument' ? (v.reviewRequested ? tr('requestHumanReview') : tr('docScanDone'))
+        : s.type === 'refugeeId' ? (v.fin || v.documentFin || tr('skipped'))
         : Array.isArray(v) ? v.map((x) => optionLabel(s, x)).join(', ')
           : s.options ? optionLabel(s, v) : v
 
@@ -490,6 +492,7 @@ export default function FormEngine({
       )}
 
       <div className="ax-row ax-foot">
+        {footerExtra?.({ answers, resumeToken: state.resumeToken })}
         {showSaveLaterButton && (
           <SaveLater
             formId={formId}
