@@ -1,21 +1,23 @@
 /* Accessible onboarding. Everything is scoped under .ax so it cannot leak into the portfolio. */
 .ax {
+  --ax-page: #f0f4f9;
   --ax-bg: #ffffff;
-  --ax-fg: #1b1b1f;
-  --ax-muted: #454b59;
-  --ax-line: #737b89;
-  --ax-card: #f4f7fb;
-  --ax-accent: #173c70;
+  --ax-fg: #1f1f1f;
+  --ax-muted: #444746;
+  --ax-line: #747775;
+  --ax-card: #ffffff;
+  --ax-accent: #1a73e8;
   --ax-accent-fg: #ffffff;
   --ax-on: #e7f0ff;
   --ax-error: #b00020;
-  --ax-focus: #cf5f00;
+  --ax-focus: #1f1f1f;
   font-size: 18px;
   line-height: 1.55;
   color: var(--ax-fg);
-  background: var(--ax-bg);
-  max-width: 58rem;
-  margin: 0 auto;
+  background: var(--ax-page);
+  min-height: 100vh;
+  width: 100%;
+  margin: 0;
   padding: clamp(0.75rem, 3vw, 2rem);
   box-sizing: border-box;
   font-family: system-ui, -apple-system, 'Segoe UI', 'Noto Sans Ethiopic', 'Nyala', sans-serif;
@@ -30,6 +32,7 @@
 .ax.ax-s4 { font-size: 36px; }
 
 .ax.ax-hc {
+  --ax-page: #000000;
   --ax-bg: #000000;
   --ax-fg: #ffffff;
   --ax-muted: #ffffff;
@@ -229,3 +232,147 @@ textarea.ax-input { resize: vertical; }
 @media (prefers-reduced-motion: reduce) {
   .ax * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+
+/* Google-style look: soft page, one rounded white card, pill buttons, outlined fields */
+html.ax-page, html.ax-page body { margin: 0; background: #f0f4f9; }
+html.ax-page-hc, html.ax-page-hc body { background: #000000; }
+
+.ax-engine {
+  max-width: 34rem; margin: 1rem auto;
+  padding: clamp(1.25rem, 5vw, 2.25rem);
+  background: var(--ax-bg); border: 2px solid transparent; border-radius: 28px;
+}
+.ax-hc .ax-engine { border-color: var(--ax-line); }
+.ax-title { font-weight: 400; }
+.ax-brand-mark { border-radius: 50%; background: var(--ax-accent); color: var(--ax-accent-fg); }
+.ax-hc .ax-brand-mark { color: #000; }
+
+.ax-input { min-height: 3.5rem; border-width: 1px; border-radius: 4px; background: transparent; }
+.ax-input:focus { border-color: var(--ax-accent); }
+.ax-card { border-width: 1px; border-radius: 12px; background: transparent; }
+.ax-card.is-on { border-width: 2px; }
+.ax-btn-primary { border-radius: 999px; padding-inline: 1.75rem; }
+.ax-btn-small, .ax-tools .ax-btn { border-radius: 999px; }
+.ax-nav { justify-content: flex-start; margin-top: 1.75rem; }
+.ax-nav .ax-btn:not(.ax-btn-primary), .ax-foot .ax-btn {
+  background: transparent; border-color: transparent; color: var(--ax-accent); font-weight: 700;
+}
+.ax-nav .ax-btn-primary { margin-inline-start: auto; }
+
+.ax-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.25rem 0 0.75rem; }
+.ax-chip {
+  position: relative; display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0.25rem 1rem;
+  border: 1px solid var(--ax-line); border-radius: 999px; cursor: pointer;
+}
+.ax-chip.is-on { border: 2px solid var(--ax-accent); background: var(--ax-on); }
+.ax-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.ax-chip:has(input:focus-visible) { outline: 4px solid var(--ax-focus); outline-offset: 2px; }
+.ax-birth-grid { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 0.75rem; }
+
+/* One outer frame around the whole page content; the sign-up card inside is unchanged */
+.ax { --ax-frame: #fbfcfe; }
+.ax.ax-hc { --ax-frame: #000000; }
+.ax-inner {
+  max-width: 68rem; margin: 0 auto;
+  background: var(--ax-frame);
+  border: 1.5px solid var(--ax-line); border-radius: 20px;
+  overflow: hidden;
+}
+.ax-hc .ax-inner { border-width: 3px; }
+.ax-brand { padding: 1rem 1.25rem; border-bottom: 1px solid var(--ax-line); }
+.ax-prefs { margin: 0; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--ax-line); }
+.ax-stage { padding: clamp(0.75rem, 3vw, 1.5rem); background: var(--ax-page); }
+.ax-tabs { margin: 0 0 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--ax-line); }
+
+/* Softer frame: no hard divider lines; the settings strip gets its own shade. Lines stay in high contrast. */
+.ax { --ax-strip: #eef3fa; }
+.ax.ax-hc { --ax-strip: #000000; }
+.ax-brand, .ax-prefs, .ax-tabs { border-bottom: 0; }
+.ax-prefs { background: var(--ax-strip); padding-block: 1rem; }
+.ax-tabs { margin-bottom: 1rem; padding-bottom: 0; }
+.ax-hc .ax-brand, .ax-hc .ax-prefs, .ax-hc .ax-tabs { border-bottom: 1px solid var(--ax-line); }
+.ax-hc .ax-tabs { padding-bottom: 0.75rem; }
+
+/* Text-size popup: shows the percentage for a moment when the size changes */
+.ax-toast {
+  position: fixed; top: 1rem; left: 50%; transform: translateX(-50%); z-index: 1000;
+  padding: 0.5rem 1.25rem; font-size: 1.25rem; font-weight: 700; pointer-events: none;
+  color: var(--ax-bg); background: var(--ax-fg); border: 3px solid var(--ax-accent); border-radius: 999px;
+}
+
+/* Wider sign-up: intro on the left, the question on the right, so less height is needed.
+   Only on wide screens and at normal to slightly larger text; otherwise it stays one column. */
+@media (min-width: 56rem) {
+  .ax-engine.ax-wide {
+    max-width: 62rem;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+    column-gap: 2rem; align-items: start; grid-template-rows: auto auto 1fr;
+  }
+  .ax-wide > .ax-title, .ax-wide > .ax-hint, .ax-wide > .ax-voice-controls { grid-column: 1; }
+  .ax-wide > .ax-foot { grid-column: 1 / -1; }
+  .ax-wide .ax-voice-controls { flex-direction: column; align-items: flex-start; margin-top: 0; }
+  .ax-wide .ax-cards { grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr)); }
+}
+
+/* Upgraded page design: display strip, underlined tabs, two-panel sign-up card with a tinted side */
+.ax { --ax-side: #ffffff; --ax-seg: #bfd0ee; --ax-divider: #c4c7c5; }
+.ax.ax-hc { --ax-side: #000000; --ax-seg: #5c5c5c; }
+
+.ax-prefs { gap: 0.5rem; }
+.ax-prefs-label { font-weight: 700; margin-inline-end: 0.25rem; }
+.ax-size-value { display: inline-flex; align-items: center; gap: 0.35rem; min-width: 0; }
+
+.ax-tabs { gap: 1.5rem; margin-bottom: 0.5rem; }
+.ax-tab {
+  min-height: 3rem; padding: 0.5rem 0.25rem; font: inherit; font-weight: 700; color: inherit;
+  background: none; border: 0; border-bottom: 3px solid transparent; border-radius: 0; cursor: pointer;
+}
+.ax-tab:hover { border-bottom-color: var(--ax-line); }
+.ax-tab[aria-pressed='true'] { color: var(--ax-accent); border-bottom-color: var(--ax-accent); }
+
+.ax-head { display: flex; align-items: center; gap: 0.75rem; }
+.ax-side-icon {
+  display: grid; place-items: center; width: 2.75rem; height: 2.75rem; flex: none;
+  border-radius: 0.8rem; background: var(--ax-accent); color: var(--ax-accent-fg);
+}
+.ax-side-icon svg { font-size: 1.5em; }
+.ax-progressbox { margin: 0.25rem 0 0.75rem; }
+.ax-progressbox .ax-progress { margin: 0 0 0.4rem; }
+.ax-segs { display: flex; gap: 3px; }
+.ax-segs span { flex: 1; height: 0.4rem; border-radius: 3px; background: var(--ax-seg); }
+.ax-segs span.is-on { background: var(--ax-accent); }
+
+@media (min-width: 56rem) {
+  .ax-engine.ax-wide {
+    padding: 0; column-gap: 0; overflow: hidden;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr);
+    grid-template-rows: auto auto auto 1fr auto;
+  }
+  .ax-wide::before {
+    content: ''; grid-column: 1; grid-row: 1 / -1; align-self: stretch;
+    background: var(--ax-side); border-inline-end: 1px solid var(--ax-divider);
+  }
+  .ax-hc .ax-wide::before { border-inline-end-color: var(--ax-line); }
+  .ax-engine.ax-wide > .ax-head { grid-column: 1; grid-row: 1; padding: 1.5rem 1.5rem 0; flex-direction: column; align-items: flex-start; }
+  .ax-engine.ax-wide > .ax-hint { grid-column: 1; grid-row: 2; padding-inline: 1.5rem; }
+  .ax-engine.ax-wide > .ax-progressbox { grid-column: 1; grid-row: 3; padding-inline: 1.5rem; }
+  .ax-engine.ax-wide > .ax-voice-controls { grid-column: 1; grid-row: 4; padding-inline: 1.5rem; }
+  .ax-engine.ax-wide > form, .ax-engine.ax-wide > div:not(.ax-head):not(.ax-progressbox):not(.ax-voice-controls):not(.ax-foot) {
+    grid-column: 2; grid-row: 1 / span 4; padding: 1.5rem;
+  }
+  .ax-engine.ax-wide > .ax-foot { grid-column: 2; grid-row: 5; margin: 0; padding: 0 1.5rem 1.25rem; border-top: 0; }
+}
+
+/* Header: the Listen button sits under the heading text, left-aligned with it */
+.ax-brand { align-items: flex-start; }
+.ax-brand-text { min-width: 0; flex: 1; }
+.ax-intro { margin: 0.6rem 0 0; margin-inline-start: 0; }
+
+/* Lower buttons share the same edges: voice buttons side by side at the field's width,
+   Back / Skip / Next on one row, and the text links start where the field starts. */
+.ax-tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.6rem; align-items: stretch; }
+.ax-tools > .ax-btn { width: 100%; }
+.ax-tools > .ax-chips, .ax-tools > .ax-voice { grid-column: 1 / -1; }
+.ax-nav { justify-content: space-between; }
+.ax-nav .ax-btn:not(.ax-btn-primary), .ax-foot .ax-btn { padding-inline: 0; justify-content: flex-start; }
+.ax-foot { justify-content: flex-start; gap: 0.25rem 1.5rem; }

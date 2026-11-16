@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-export const SPEECH_LANG = { en: 'en-US' }
+export const SPEECH_LANG = { en: 'en-US', am: 'am-ET' }
 
 const getCtor = () =>
   typeof window === 'undefined' ? null : window.SpeechRecognition || window.webkitSpeechRecognition

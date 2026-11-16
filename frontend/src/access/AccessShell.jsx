@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MdContrast, MdRemove, MdAdd, MdVolumeUp, MdPause } from 'react-icons/md'
+import { MdContrast, MdRemove, MdAdd, MdVolumeUp, MdPause, MdTextFields, MdVisibility } from 'react-icons/md'
 import './access.css'
 import { AccessContext, useAccess } from './context'
 import { translate } from './translation helper'
@@ -53,6 +53,18 @@ export default function AccessShell({ children, className = '' }) {
   const [prefs, setPrefs] = useState(() => ({ ...readPrefs(), lang: 'en' }))
   const [supportOpen, setSupportOpen] = useState(0)
   const dialogRef = useRef(null)
+  const [sizeToast, setSizeToast] = useState('')
+  const toastTimer = useRef(null)
+  const contrast = !!prefs.contrast
+
+  // Colour the whole page, not only the form, so high contrast has no white edges.
+  useEffect(() => {
+    if (outer.inShell) return
+    const root = document.documentElement
+    root.classList.add('ax-page')
+    root.classList.toggle('ax-page-hc', contrast)
+    return () => root.classList.remove('ax-page', 'ax-page-hc')
+  }, [outer.inShell, contrast])
 
   useEffect(() => {
     if (outer.inShell) return undefined
@@ -69,6 +81,13 @@ export default function AccessShell({ children, className = '' }) {
   }
   const tr = (k, v) => translate(prefs.lang, k, v)
   const size = Math.max(0, Math.min(MAX_SIZE, Number(prefs.size) || 0))
+  // The percentage is shown only for a moment when the size changes.
+  const changeSize = (next) => {
+    set({ size: next })
+    setSizeToast(tr('textScale', { percent: 100 + next * 25 }))
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setSizeToast(''), 1500)
+  }
   const openSupport = () => {
     setSupportOpen((n) => n + 1)
     dialogRef.current?.showModal()
@@ -79,23 +98,26 @@ export default function AccessShell({ children, className = '' }) {
   return (
     <AccessContext.Provider value={value}>
       <div lang={prefs.lang} className={`ax ${SIZES[size]}${prefs.contrast ? ' ax-hc' : ''}${prefs.simple ? ' ax-simple' : ''} ${className}`}>
+       <div className="ax-inner">
         <header className="ax-brand">
           <div className="ax-brand-mark" aria-hidden="true">DB</div>
-          <div>
-            <h1 className="ax-brand-name">Digital Bridge</h1>
+          <div className="ax-brand-text">
+            <h1 className="ax-brand-name">Welcome to Digital Bridge</h1>
             <p className="ax-brand-tagline">{tr('introText')}</p>
+            <button type="button" className="ax-btn ax-btn-small ax-intro" onClick={() => speak(`${tr('introTitle')}. ${tr('introText')} ${tr('introHelp')}`, prefs.lang)}>
+              <MdVolumeUp aria-hidden="true" /> {tr('listenIntro')}
+            </button>
           </div>
-          <button type="button" className="ax-btn ax-btn-small ax-intro" onClick={() => speak(`${tr('introTitle')}. ${tr('introText')} ${tr('introHelp')}`, prefs.lang)}>
-            <MdVolumeUp aria-hidden="true" /> {tr('listenIntro')}
-          </button>
         </header>
         <div className="ax-prefs" role="group" aria-label={tr('prefs')}>
+          <span className="ax-prefs-label">{tr('display')}</span>
           <div className="ax-row" role="group" aria-label={tr('textSize')}>
-            <button type="button" className="ax-btn ax-btn-small" onClick={() => set({ size: Math.max(0, size - 1) })} disabled={size === 0}>
+            <button type="button" className="ax-btn ax-btn-small" onClick={() => changeSize(Math.max(0, size - 1))} disabled={size === 0}>
               <MdRemove aria-hidden="true" /><span className="ax-sr">{tr('smaller')}</span>
             </button>
-            <span className="ax-size-value" aria-live="polite">{tr('textScale', { percent: 100 + size * 25 })}</span>
-            <button type="button" className="ax-btn ax-btn-small" onClick={() => set({ size: Math.min(MAX_SIZE, size + 1) })} disabled={size === MAX_SIZE}>
+            <span className="ax-size-value"><MdTextFields aria-hidden="true" /> {tr('textSize')}</span>
+            <span className="ax-sizenote" role="status" aria-live="polite">{sizeToast && <span className="ax-toast">{sizeToast}</span>}</span>
+            <button type="button" className="ax-btn ax-btn-small" onClick={() => changeSize(Math.min(MAX_SIZE, size + 1))} disabled={size === MAX_SIZE}>
               <MdAdd aria-hidden="true" /><span className="ax-sr">{tr('larger')}</span>
             </button>
           </div>
@@ -109,11 +131,12 @@ export default function AccessShell({ children, className = '' }) {
             {prefs.voiceGuidance ? <MdPause aria-hidden="true" /> : <MdVolumeUp aria-hidden="true" />} {prefs.voiceGuidance ? tr('stopVoiceGuidance') : tr('voiceGuidance')}
           </button>
           <button type="button" className="ax-btn ax-btn-small" aria-pressed={prefs.simple} onClick={() => set({ simple: !prefs.simple })}>
-            {tr('simpleMode')}
+            <MdVisibility aria-hidden="true" /> {tr('simpleMode')}
           </button>
         </div>
-        {children}
+        <div className="ax-stage">{children}</div>
         <SupportDialog dialogRef={dialogRef} openCount={supportOpen} onClose={() => {}} />
+       </div>
       </div>
     </AccessContext.Provider>
   )

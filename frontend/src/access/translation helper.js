@@ -46,6 +46,7 @@ export const STRINGS = {
     options: 'The choices are',
     optional: '(optional)',
     prefs: 'Display and language',
+    display: 'Display',
     textSize: 'Text size',
     textScale: 'Text {percent}%',
     smaller: 'Smaller text',
@@ -129,7 +130,10 @@ export const STRINGS = {
     supportTitle: 'Ask for support privately',
     supportDone: 'Your request is saved privately. You did not have to explain why or show any proof.',
     resumeFound: 'Welcome back. You can carry on where you stopped.',
-    loading: 'Loading…' }
+    loading: 'Loading…',
+    voiceLanguage: 'Voice language',
+    voiceLangEn: 'English',
+    voiceLangAm: 'አማርኛ (Amharic)' }
 }
 
 export function translate(lang, key, vars) {

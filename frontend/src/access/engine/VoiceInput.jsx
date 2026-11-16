@@ -5,12 +5,35 @@ import { useListen } from '../voice'
 
 // Voice on every field. What was heard goes into an editable box first; nothing is applied until
 // the person presses "Use this answer".
-export default function VoiceInput({ onApply }) {
-  const { lang, tr } = useAccess()
+// allowAmharic: for free-text fields (such as a name) the person can speak in Amharic.
+export default function VoiceInput({ onApply, allowAmharic = false }) {
+  const { lang, tr, prefs, setPrefs } = useAccess()
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [note, setNote] = useState('')
-  const { supported, listening, error, start, stop } = useListen(lang)
+  const voiceLang = allowAmharic && prefs?.voiceLang === 'am' ? 'am' : lang
+  const { supported, listening, error, start, stop } = useListen(voiceLang)
+
+  const chooseVoiceLang = (code) => {
+    stop()
+    setPrefs?.({ voiceLang: code })
+  }
+  const langChips = allowAmharic && (
+    <div className="ax-chips" role="group" aria-label={tr('voiceLanguage')}>
+      <span className="ax-label-small">{tr('voiceLanguage')}</span>
+      {[['en', 'voiceLangEn'], ['am', 'voiceLangAm']].map(([code, key]) => (
+        <label key={code} className={`ax-chip${(voiceLang === 'am' ? 'am' : 'en') === code ? ' is-on' : ''}`}>
+          <input
+            type="radio"
+            name="ax-voice-lang"
+            checked={(voiceLang === 'am' ? 'am' : 'en') === code}
+            onChange={() => chooseVoiceLang(code)}
+          />
+          <span lang={code === 'am' ? 'am' : undefined}>{tr(key)}</span>
+        </label>
+      ))}
+    </div>
+  )
 
   const begin = () => {
     setOpen(true)
@@ -40,18 +63,23 @@ export default function VoiceInput({ onApply }) {
 
   if (!open) {
     return (
-      <button type="button" className="ax-btn ax-btn-ghost" onClick={begin}>
-        <MdMic aria-hidden="true" /> {tr('voiceStart')}
-      </button>
+      <>
+        <button type="button" className="ax-btn ax-btn-ghost" onClick={begin}>
+          <MdMic aria-hidden="true" /> {tr('voiceStart')}
+        </button>
+        {langChips}
+      </>
     )
   }
   return (
     <div className="ax-voice" role="group" aria-label={tr('voiceTitle')}>
       <p className="ax-voice-status" aria-live="polite">{status}</p>
+      {langChips}
       <label className="ax-label-small">
         {tr('heard')}
         <textarea
           className="ax-input"
+          lang={voiceLang === 'am' ? 'am' : undefined}
           rows={3}
           value={text}
           onChange={(e) => setText(e.target.value)}

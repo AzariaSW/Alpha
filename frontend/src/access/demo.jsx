@@ -59,9 +59,9 @@ function Demo() {
   const [tab, setTab] = useState('signup')
   return (
     <AccessShell>
-      <nav className="ax-row" aria-label="Demo sections">
+      <nav className="ax-row ax-tabs" aria-label="Demo sections">
         {TABS.map(([id, name]) => (
-          <button key={id} type="button" className="ax-btn ax-btn-small" aria-pressed={tab === id} onClick={() => setTab(id)}>{name}</button>
+          <button key={id} type="button" className="ax-tab" aria-pressed={tab === id} onClick={() => setTab(id)}>{name}</button>
         ))}
       </nav>
       <main>
