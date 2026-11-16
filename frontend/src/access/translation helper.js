@@ -46,6 +46,7 @@ export const STRINGS = {
     options: 'The choices are',
     optional: '(optional)',
     prefs: 'Display and language',
+    display: 'Display',
     textSize: 'Text size',
     textScale: 'Text {percent}%',
     smaller: 'Smaller text',
@@ -130,6 +131,9 @@ export const STRINGS = {
     supportDone: 'Your request is saved privately. You did not have to explain why or show any proof.',
     resumeFound: 'Welcome back. You can carry on where you stopped.',
     loading: 'Loading…',
+    voiceLanguage: 'Voice language',
+    voiceLangEn: 'English',
+    voiceLangAm: 'አማርኛ (Amharic)',
     noVoice: 'This device cannot read aloud yet: no speech voice is installed. On Android, install or turn on "Speech Services by Google". On a computer, use Chrome or Edge with a system voice. All questions are also shown as text.' }
 }
 

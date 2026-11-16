@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import { MdArrowBack, MdArrowForward, MdEdit, MdLock, MdVolumeUp, MdCheck, MdHelp } from 'react-icons/md'
+import { MdArrowBack, MdArrowForward, MdEdit, MdLock, MdVolumeUp, MdCheck, MdHelp, MdPerson } from 'react-icons/md'
 import { useAccess } from '../context'
 import { pick } from '../translation helper'
 import { store, saveDraft, dropResume } from '../store'
@@ -378,9 +378,22 @@ export default function FormEngine({
   }
 
   return (
-    <section className="ax-engine" ref={rootRef} aria-label={title}>
-      <h2 className="ax-title">{title}</h2>
+    <section className={`ax-engine${(Number(prefs?.size) || 0) <= 1 ? ' ax-wide' : ''}`} ref={rootRef} aria-label={title}>
+      <div className="ax-head">
+        <span className="ax-side-icon" aria-hidden="true"><MdPerson /></span>
+        <h2 className="ax-title">{title}</h2>
+      </div>
       <p className="ax-hint">{schema.hint ? pick(schema.hint, lang, simple) : tr('noTimer')}</p>
+      {!review && (
+        <div className="ax-progressbox">
+          <p className="ax-progress" aria-live="polite" aria-atomic="true">
+            {tr('questionOf', { n: progressIndex, total: asked.length })}
+          </p>
+          <div className="ax-segs" aria-hidden="true">
+            {asked.map((s, i) => <span key={s.id} className={i < progressIndex ? 'is-on' : ''} />)}
+          </div>
+        </div>
+      )}
       <div className="ax-row ax-voice-controls">
         {!voiceOnly ? (
           <button type="button" className="ax-btn ax-btn-ghost" onClick={startVoiceOnly} disabled={!voiceSupported}>
@@ -436,14 +449,10 @@ export default function FormEngine({
             next()
           }}
         >
-          <p className="ax-progress" aria-live="polite" aria-atomic="true">
-            {tr('questionOf', { n: progressIndex, total: asked.length })}
-          </p>
           {progressError && <p className="ax-error" role="alert">{tr('progressSaveFailed')}</p>}
           <p className="ax-sr" role="status" aria-live="polite" aria-atomic="true">
             {savingProgress ? tr('savingProgress') : status === 'submitting' ? tr('sending') : ''}
           </p>
-          <progress className="ax-bar" max={asked.length} value={progressIndex} aria-hidden="true" />
           <StepField
             step={step}
             qid={qid}
@@ -459,6 +468,7 @@ export default function FormEngine({
             {step.type !== 'info' && (
               <VoiceInput
                 key={step.id}
+                allowAmharic={step.type === 'text' || step.type === 'textarea'}
                 onApply={(text) => {
                   const r = applyVoice(step, text, answers[step.id], tr, lang, simple)
                   if (r.ok) setValue(step.id, r.value)
